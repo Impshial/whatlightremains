@@ -152,7 +152,7 @@ namespace WhatLightRemains.Runtime
             {
                 // Camera.Render can run while the verification player is hidden. Temporarily
                 // route overlay canvases through the gameplay camera so the HUD is included.
-                foreach (Canvas canvas in FindObjectsByType<Canvas>(FindObjectsSortMode.None))
+                foreach (Canvas canvas in FindObjectsByType<Canvas>())
                 {
                     if (canvas.renderMode != RenderMode.ScreenSpaceOverlay)
                     {
@@ -268,7 +268,9 @@ namespace WhatLightRemains.Runtime
                 rootPosition,
                 Quaternion.LookRotation(flatForward, roomBasis.up));
 
-            Transform pitchPivot = motor.transform.Find("Pitch Pivot");
+            Transform yawPivot = GetYawPivot(motor);
+            if (yawPivot != null) yawPivot.localRotation = Quaternion.identity;
+            Transform pitchPivot = GetPitchPivot(motor);
             if (pitchPivot != null)
             {
                 pitchPivot.rotation = Quaternion.LookRotation(target - pitchPivot.position, roomBasis.up);
@@ -288,8 +290,10 @@ namespace WhatLightRemains.Runtime
                 return;
             }
 
-            motor.transform.SetPositionAndRotation(new Vector3(0f, 0.35f, 0f), Quaternion.Euler(0f, 90f, 0f));
-            Transform pitchPivot = motor.transform.Find("Pitch Pivot");
+            motor.transform.SetPositionAndRotation(new Vector3(0f, 0.93f, 0f), Quaternion.Euler(0f, 90f, 0f));
+            Transform yawPivot = GetYawPivot(motor);
+            if (yawPivot != null) yawPivot.localRotation = Quaternion.identity;
+            Transform pitchPivot = GetPitchPivot(motor);
             if (pitchPivot != null)
             {
                 pitchPivot.localRotation = Quaternion.identity;
@@ -321,10 +325,12 @@ namespace WhatLightRemains.Runtime
                 controller.enabled = false;
             }
 
-            Vector3 playerPosition = room.transform.TransformPoint(new Vector3(0f, 0.05f, 0f));
+            Vector3 playerPosition = room.transform.TransformPoint(new Vector3(0f, 0.93f, 0f));
             Vector3 north = room.GetWallNormalWorld(CubeRoomWall.North);
             motor.transform.SetPositionAndRotation(playerPosition, Quaternion.LookRotation(north, room.RoomUp));
-            Transform pitchPivot = motor.transform.Find("Pitch Pivot");
+            Transform yawPivot = GetYawPivot(motor);
+            if (yawPivot != null) yawPivot.localRotation = Quaternion.identity;
+            Transform pitchPivot = GetPitchPivot(motor);
             if (pitchPivot != null)
             {
                 pitchPivot.localRotation = Quaternion.identity;
@@ -360,7 +366,7 @@ namespace WhatLightRemains.Runtime
                 controller.enabled = false;
             }
 
-            Transform pitchPivot = motor.transform.Find("Pitch Pivot");
+            Transform pitchPivot = GetPitchPivot(motor);
             Transform viewmodel = pitchPivot != null ? pitchPivot.Find("Viewmodel") : null;
             if (viewmodel != null)
             {
@@ -378,7 +384,9 @@ namespace WhatLightRemains.Runtime
 
         private static void ResetPitchAndFov(FirstPersonMotor motor, float fieldOfView)
         {
-            Transform pitchPivot = motor.transform.Find("Pitch Pivot");
+            Transform yawPivot = GetYawPivot(motor);
+            if (yawPivot != null) yawPivot.localRotation = Quaternion.identity;
+            Transform pitchPivot = GetPitchPivot(motor);
             if (pitchPivot != null)
             {
                 pitchPivot.localRotation = Quaternion.identity;
@@ -388,6 +396,19 @@ namespace WhatLightRemains.Runtime
             {
                 Camera.main.fieldOfView = fieldOfView;
             }
+        }
+
+        private static Transform GetYawPivot(FirstPersonMotor motor)
+        {
+            return motor != null ? motor.transform.Find("Yaw Pivot") : null;
+        }
+
+        private static Transform GetPitchPivot(FirstPersonMotor motor)
+        {
+            Transform yawPivot = GetYawPivot(motor);
+            return yawPivot != null
+                ? yawPivot.Find("Pitch Pivot")
+                : motor != null ? motor.transform.Find("Pitch Pivot") : null;
         }
     }
 }

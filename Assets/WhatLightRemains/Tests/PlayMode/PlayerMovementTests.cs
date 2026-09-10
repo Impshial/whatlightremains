@@ -20,6 +20,8 @@ namespace WhatLightRemains.Tests
         private FirstPersonMotor motor;
         private PlayerRoomTracker tracker;
         private CharacterController controller;
+        private KinematicCapsuleMover capsuleMover;
+        private PlayerGravityAlignment gravityAlignment;
 
         [UnitySetUp]
         public IEnumerator SetUp()
@@ -40,6 +42,9 @@ namespace WhatLightRemains.Tests
             tracker = motor.GetComponent<PlayerRoomTracker>();
             Assert.That(tracker, Is.Not.Null);
             controller = motor.GetComponent<CharacterController>();
+            capsuleMover = motor.GetComponent<KinematicCapsuleMover>();
+            gravityAlignment = motor.GetComponent<PlayerGravityAlignment>();
+            Assert.That(controller != null || capsuleMover != null, Is.True, "Player requires a legacy or arbitrary-gravity mover.");
             PlayerLook look = motor.GetComponent<PlayerLook>();
             if (look != null)
             {
@@ -79,6 +84,8 @@ namespace WhatLightRemains.Tests
             motor = null;
             tracker = null;
             controller = null;
+            capsuleMover = null;
+            gravityAlignment = null;
         }
 
         [UnityTest]
@@ -99,6 +106,27 @@ namespace WhatLightRemains.Tests
             Assert.That(cardinalSpeed, Is.EqualTo(3f).Within(0.03f));
             Assert.That(diagonalSpeed, Is.EqualTo(3f).Within(0.03f));
             Assert.That(diagonalSpeed, Is.EqualTo(cardinalSpeed).Within(0.01f));
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator Sprint_IsSixMetersPerSecondAndDiagonalIsNormalized()
+        {
+            const float sampleDuration = 0.30f;
+
+            Vector3 cardinalStart = motor.transform.position;
+            SimulateFor(sampleDuration, Vector2.up, true);
+            float cardinalSpeed = PlanarDistance(cardinalStart, motor.transform.position) / sampleDuration;
+
+            yield return ResetPlayer();
+
+            Vector3 diagonalStart = motor.transform.position;
+            SimulateFor(sampleDuration, Vector2.one, true);
+            float diagonalSpeed = PlanarDistance(diagonalStart, motor.transform.position) / sampleDuration;
+
+            Assert.That(cardinalSpeed, Is.EqualTo(6f).Within(0.05f));
+            Assert.That(diagonalSpeed, Is.EqualTo(6f).Within(0.05f));
+            Assert.That(diagonalSpeed, Is.EqualTo(cardinalSpeed).Within(0.02f));
             yield return null;
         }
 
@@ -147,18 +175,18 @@ namespace WhatLightRemains.Tests
             motor.JumpHeight = 10f;
             motor.Tick(Vector2.zero, true, SimulationStep);
 
-            float highestRoot = LocalPosition().y;
+            float highestCapsuleTop = LocalCapsuleTop();
             for (int step = 0; step < 400; step++)
             {
                 motor.Tick(Vector2.zero, false, SimulationStep);
-                highestRoot = Mathf.Max(highestRoot, LocalPosition().y);
-                if (highestRoot > 1f && motor.VerticalSpeed <= 0f)
+                highestCapsuleTop = Mathf.Max(highestCapsuleTop, LocalCapsuleTop());
+                if (highestCapsuleTop > 2f && motor.VerticalSpeed <= 0f)
                 {
                     break;
                 }
             }
 
-            Assert.That(highestRoot, Is.InRange(6.05f, 6.22f), "The capsule top should stop at the eight-metre ceiling.");
+            Assert.That(highestCapsuleTop, Is.InRange(7.80f, 8.03f), "The capsule top should stop at the eight-metre ceiling.");
             Assert.That(motor.VerticalSpeed, Is.LessThanOrEqualTo(0f));
 
             Vector2Int sealedGridDirection = new[]
@@ -274,11 +302,31 @@ namespace WhatLightRemains.Tests
             Vector3 localForward = requestedLocalForward ?? Vector3.forward;
             localForward = Vector3.ProjectOnPlane(localForward, Vector3.up).normalized;
             Vector3 worldForward = room.transform.TransformDirection(localForward);
-            controller.enabled = false;
+            Transform movementReference = motor.MovementReference;
+            if (movementReference != null && movementReference != motor.transform)
+            {
+                movementReference.localRotation = Quaternion.identity;
+            }
+
+            if (controller != null)
+            {
+                controller.enabled = false;
+            }
+
+            float spawnCenterHeight = capsuleMover != null ? motor.ControllerHeight * 0.5f + 0.03f : 0.06f;
             motor.transform.SetPositionAndRotation(
-                room.transform.TransformPoint(new Vector3(0f, 0.06f, 0f)),
+                room.transform.TransformPoint(new Vector3(0f, spawnCenterHeight, 0f)),
                 Quaternion.LookRotation(worldForward, room.RoomUp));
-            controller.enabled = true;
+            if (controller != null)
+            {
+                controller.enabled = true;
+            }
+
+            if (gravityAlignment != null)
+            {
+                gravityAlignment.SnapToUp(room.RoomUp);
+            }
+
             motor.ResetMotion();
             Physics.SyncTransforms();
 
@@ -291,18 +339,26 @@ namespace WhatLightRemains.Tests
             yield return null;
         }
 
-        private void SimulateFor(float duration, Vector2 movement)
+        private void SimulateFor(float duration, Vector2 movement, bool sprint = false)
         {
             int steps = Mathf.RoundToInt(duration / SimulationStep);
             for (int step = 0; step < steps; step++)
             {
-                motor.Tick(movement, false, SimulationStep);
+                motor.Tick(movement, false, sprint, SimulationStep);
             }
         }
 
         private Vector3 LocalPosition()
         {
             return room.transform.InverseTransformPoint(motor.transform.position);
+        }
+
+        private float LocalCapsuleTop()
+        {
+            float rootHeight = LocalPosition().y;
+            return capsuleMover != null
+                ? rootHeight + motor.ControllerHeight * 0.5f
+                : rootHeight + motor.ControllerHeight;
         }
 
         private float PlanarDistance(Vector3 start, Vector3 end)

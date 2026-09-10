@@ -10,21 +10,27 @@ namespace WhatLightRemains.Runtime
         [SerializeField] private CubeRoom startingRoom;
 
         private readonly List<CubeRoom> occupiedRooms = new();
+        private int assignmentLockDepth;
 
         public CubeRoom CurrentRoom { get; private set; }
         public Vector3 GravityAcceleration => CurrentRoom != null ? CurrentRoom.GravityAcceleration : Vector3.zero;
         public event Action<CubeRoom, CubeRoom> CurrentRoomChanged;
+        public bool IsRoomAssignmentLocked => assignmentLockDepth > 0;
 
         public void Initialize(CubeRoom room)
         {
             startingRoom = room;
             occupiedRooms.Clear();
+            assignmentLockDepth = 0;
             if (room != null)
             {
                 occupiedRooms.Add(room);
             }
 
-            SetCurrentRoom(room);
+            if (!IsRoomAssignmentLocked)
+            {
+                SetCurrentRoom(room);
+            }
         }
 
         public void EnterRoom(CubeRoom room)
@@ -40,7 +46,10 @@ namespace WhatLightRemains.Runtime
                 occupiedRooms.Add(room);
             }
 
-            SetCurrentRoom(room);
+            if (!IsRoomAssignmentLocked)
+            {
+                SetCurrentRoom(room);
+            }
         }
 
         public void ExitRoom(CubeRoom room)
@@ -52,11 +61,43 @@ namespace WhatLightRemains.Runtime
 
             occupiedRooms.Remove(room);
             RemoveDestroyedRooms();
-            if (CurrentRoom == room)
+            if (!IsRoomAssignmentLocked && CurrentRoom == room)
             {
                 CubeRoom replacement = occupiedRooms.Count > 0 ? occupiedRooms[occupiedRooms.Count - 1] : null;
                 SetCurrentRoom(replacement);
             }
+        }
+
+        /// <summary>
+        /// Defers gravity-room changes while an authored traversal (currently a ceiling
+        /// ladder) crosses overlapping or empty trigger volumes.
+        /// </summary>
+        public void BeginRoomAssignmentLock()
+        {
+            assignmentLockDepth++;
+        }
+
+        public void EndRoomAssignmentLock(CubeRoom destinationRoom = null)
+        {
+            assignmentLockDepth = Mathf.Max(0, assignmentLockDepth - 1);
+            if (IsRoomAssignmentLocked)
+            {
+                return;
+            }
+
+            RemoveDestroyedRooms();
+            if (destinationRoom != null)
+            {
+                if (!occupiedRooms.Contains(destinationRoom))
+                {
+                    occupiedRooms.Add(destinationRoom);
+                }
+
+                SetCurrentRoom(destinationRoom);
+                return;
+            }
+
+            ResolveRoomAtCurrentPosition();
         }
 
         private void Awake()
@@ -69,6 +110,11 @@ namespace WhatLightRemains.Runtime
 
         private void LateUpdate()
         {
+            if (IsRoomAssignmentLocked)
+            {
+                return;
+            }
+
             // CharacterController movement can cross an entire trigger seam between physics
             // updates (tests, low frame rates, teleports, and future room transitions all do
             // this). Recover from the room volumes geometrically if trigger callbacks have not
@@ -78,7 +124,12 @@ namespace WhatLightRemains.Runtime
                 return;
             }
 
-            CubeRoom[] rooms = FindObjectsByType<CubeRoom>(FindObjectsSortMode.None);
+            ResolveRoomAtCurrentPosition();
+        }
+
+        public void ResolveRoomAtCurrentPosition()
+        {
+            CubeRoom[] rooms = FindObjectsByType<CubeRoom>();
             for (int index = 0; index < rooms.Length; index++)
             {
                 CubeRoom candidate = rooms[index];

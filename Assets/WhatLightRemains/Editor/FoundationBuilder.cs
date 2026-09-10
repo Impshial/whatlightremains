@@ -713,9 +713,17 @@ namespace WhatLightRemains.Editor
                 CubeRoomWallBoundary northBoundary = CreateWallBoundary(
                     "North", CubeRoomWall.North, glassRoot, colliders,
                     new Vector3(0f, 4f, 4f), Vector3.zero, glass, strip, baseRail);
-                CreateGlassPane("Glass Ceiling", glassRoot, new Vector3(0f, 8f, 0f), new Vector3(-90f, 0f, 0f), glass);
+                CubeRoomCeilingBoundary ceilingBoundary = CreateCeilingBoundary(
+                    room,
+                    glassRoot,
+                    colliders,
+                    glass,
+                    strip,
+                    stripHousing,
+                    baseRail);
 
                 room.ConfigureWallBoundaries(westBoundary, eastBoundary, southBoundary, northBoundary);
+                room.ConfigureCeilingBoundary(ceilingBoundary);
                 room.ConfigureWallGlass(
                     westBoundary.ClosedGlassRenderer,
                     eastBoundary.ClosedGlassRenderer,
@@ -726,8 +734,6 @@ namespace WhatLightRemains.Editor
                     eastBoundary.ClosedCollider,
                     southBoundary.ClosedCollider,
                     northBoundary.ClosedCollider);
-                CreateBoxCollider("Ceiling Collider", colliders, new Vector3(0f, 8.05f, 0f), new Vector3(8.2f, 0.10f, 8.2f));
-
                 Transform lightingRoot = NewChild(root.transform, "Lighting");
                 CubeRoomLighting lighting = lightingRoot.gameObject.AddComponent<CubeRoomLighting>();
                 Transform housingsRoot = NewChild(lightingRoot, "Strip Housings");
@@ -736,10 +742,15 @@ namespace WhatLightRemains.Editor
                 CreateCube("Housing Vertical SE", housingsRoot, new Vector3(3.95f, 4f, -3.95f), new Vector3(housingWidth, 8f, housingWidth), stripHousing, false, false);
                 CreateCube("Housing Vertical NW", housingsRoot, new Vector3(-3.95f, 4f, 3.95f), new Vector3(housingWidth, 8f, housingWidth), stripHousing, false, false);
                 CreateCube("Housing Vertical NE", housingsRoot, new Vector3(3.95f, 4f, 3.95f), new Vector3(housingWidth, 8f, housingWidth), stripHousing, false, false);
-                CreateCube("Housing Ceiling South", housingsRoot, new Vector3(0f, 7.95f, -3.95f), new Vector3(8f, housingWidth, housingWidth), stripHousing, false, false);
-                CreateCube("Housing Ceiling North", housingsRoot, new Vector3(0f, 7.95f, 3.95f), new Vector3(8f, housingWidth, housingWidth), stripHousing, false, false);
-                CreateCube("Housing Ceiling West", housingsRoot, new Vector3(-3.95f, 7.95f, 0f), new Vector3(housingWidth, housingWidth, 8f), stripHousing, false, false);
-                CreateCube("Housing Ceiling East", housingsRoot, new Vector3(3.95f, 7.95f, 0f), new Vector3(housingWidth, housingWidth, 8f), stripHousing, false, false);
+                Transform ceilingAssembliesRoot = NewChild(lightingRoot, "Ceiling Edge Assemblies");
+                Transform ceilingWest = NewChild(ceilingAssembliesRoot, "Ceiling West Assembly");
+                Transform ceilingEast = NewChild(ceilingAssembliesRoot, "Ceiling East Assembly");
+                Transform ceilingSouth = NewChild(ceilingAssembliesRoot, "Ceiling South Assembly");
+                Transform ceilingNorth = NewChild(ceilingAssembliesRoot, "Ceiling North Assembly");
+                CreateCube("Housing Ceiling South", ceilingSouth, new Vector3(0f, 7.95f, -3.95f), new Vector3(8f, housingWidth, housingWidth), stripHousing, false, false);
+                CreateCube("Housing Ceiling North", ceilingNorth, new Vector3(0f, 7.95f, 3.95f), new Vector3(8f, housingWidth, housingWidth), stripHousing, false, false);
+                CreateCube("Housing Ceiling West", ceilingWest, new Vector3(-3.95f, 7.95f, 0f), new Vector3(housingWidth, housingWidth, 8f), stripHousing, false, false);
+                CreateCube("Housing Ceiling East", ceilingEast, new Vector3(3.95f, 7.95f, 0f), new Vector3(housingWidth, housingWidth, 8f), stripHousing, false, false);
 
                 Transform stripsRoot = NewChild(lightingRoot, "Visible Strips");
                 List<Renderer> stripRenderers = new List<Renderer>();
@@ -748,32 +759,58 @@ namespace WhatLightRemains.Editor
                 stripRenderers.Add(CreateCube("Strip Vertical SE", stripsRoot, new Vector3(3.87f, 4f, -3.87f), new Vector3(stripWidth, 8f, stripWidth), strip, false, false));
                 stripRenderers.Add(CreateCube("Strip Vertical NW", stripsRoot, new Vector3(-3.87f, 4f, 3.87f), new Vector3(stripWidth, 8f, stripWidth), strip, false, false));
                 stripRenderers.Add(CreateCube("Strip Vertical NE", stripsRoot, new Vector3(3.87f, 4f, 3.87f), new Vector3(stripWidth, 8f, stripWidth), strip, false, false));
-                stripRenderers.Add(CreateCube("Strip Ceiling South", stripsRoot, new Vector3(0f, 7.87f, -3.87f), new Vector3(8f, stripWidth, stripWidth), strip, false, false));
-                stripRenderers.Add(CreateCube("Strip Ceiling North", stripsRoot, new Vector3(0f, 7.87f, 3.87f), new Vector3(8f, stripWidth, stripWidth), strip, false, false));
-                stripRenderers.Add(CreateCube("Strip Ceiling West", stripsRoot, new Vector3(-3.87f, 7.87f, 0f), new Vector3(stripWidth, stripWidth, 8f), strip, false, false));
-                stripRenderers.Add(CreateCube("Strip Ceiling East", stripsRoot, new Vector3(3.87f, 7.87f, 0f), new Vector3(stripWidth, stripWidth, 8f), strip, false, false));
+                stripRenderers.Add(CreateCube("Strip Ceiling South", ceilingSouth, new Vector3(0f, 7.87f, -3.87f), new Vector3(8f, stripWidth, stripWidth), strip, false, false));
+                stripRenderers.Add(CreateCube("Strip Ceiling North", ceilingNorth, new Vector3(0f, 7.87f, 3.87f), new Vector3(8f, stripWidth, stripWidth), strip, false, false));
+                stripRenderers.Add(CreateCube("Strip Ceiling West", ceilingWest, new Vector3(-3.87f, 7.87f, 0f), new Vector3(stripWidth, stripWidth, 8f), strip, false, false));
+                stripRenderers.Add(CreateCube("Strip Ceiling East", ceilingEast, new Vector3(3.87f, 7.87f, 0f), new Vector3(stripWidth, stripWidth, 8f), strip, false, false));
+                ceilingBoundary.ConfigureEdgeCrossingRoots(
+                    ceilingWest.gameObject,
+                    ceilingEast.gameObject,
+                    ceilingSouth.gameObject,
+                    ceilingNorth.gameObject);
 
                 Transform supportRoot = NewChild(lightingRoot, "Supporting Lights");
                 // URP does not provide real-time area lights. Several broad, shadow-free spot
                 // emitters follow each visible strip so illumination originates along its full
                 // length instead of converging on a proxy source near the center of the room.
-                Light[] lights = StripEmitterDefinitions
-                    .Select((definition, index) => CreateSupportingLight(supportRoot, definition, index + 1))
+                List<Light> stripLights = new List<Light>(StripEmitterDefinitions.Length);
+                for (int index = 0; index < StripEmitterDefinitions.Length; index++)
+                {
+                    StripEmitterDefinition definition = StripEmitterDefinitions[index];
+                    Transform lightParent = definition.Name.StartsWith("Ceiling West", StringComparison.Ordinal) ? ceilingWest
+                        : definition.Name.StartsWith("Ceiling East", StringComparison.Ordinal) ? ceilingEast
+                        : definition.Name.StartsWith("Ceiling South", StringComparison.Ordinal) ? ceilingSouth
+                        : definition.Name.StartsWith("Ceiling North", StringComparison.Ordinal) ? ceilingNorth
+                        : supportRoot;
+                    stripLights.Add(CreateSupportingLight(lightParent, definition, index + 1));
+                }
+                Light[] lights = stripLights.ToArray();
+                stripRenderers.AddRange(ceilingBoundary.GetComponentsInChildren<Renderer>(true)
+                    .Where(renderer => renderer.name.StartsWith("Strip Ceiling Passage", StringComparison.Ordinal)));
+                stripLights.AddRange(ceilingBoundary.GetComponentsInChildren<Light>(true)
+                    .Where(light => light.name.StartsWith("Strip Passage Emitter", StringComparison.Ordinal)));
+                lights = stripLights.ToArray();
+                Renderer[] doorwayFrames = new Component[]
+                    { westBoundary, eastBoundary, southBoundary, northBoundary, ceilingBoundary }
+                    .SelectMany(boundary => boundary.GetComponentsInChildren<Renderer>(true))
+                    .Where(renderer => renderer.name.StartsWith("Doorway Frame", StringComparison.Ordinal))
                     .ToArray();
-                Renderer[] doorwayFrames = new[] { westBoundary, eastBoundary, southBoundary, northBoundary }
-                    .SelectMany(boundary => boundary.DoorwayFrameRenderers)
+                Light[] doorwayLights = new Component[]
+                    { westBoundary, eastBoundary, southBoundary, northBoundary, ceilingBoundary }
+                    .SelectMany(boundary => boundary.GetComponentsInChildren<Light>(true))
+                    .Where(light => light.name.StartsWith("Doorway Emitter", StringComparison.Ordinal))
                     .ToArray();
                 lighting.StripColor = NeutralWhite;
                 lighting.StripWidth = stripWidth;
                 lighting.EmissionIntensity = 6f;
-                lighting.DoorwayFrameEmissionIntensity = 1.35f;
+                lighting.DoorwayFramePowerRatio = 0.5f;
                 lighting.SupportingLightIntensity = 0.85f;
                 lighting.SupportingLightRange = 12f;
                 lighting.SupportingLightSpotAngle = 170f;
                 lighting.SupportingLightInnerSpotAngle = 160f;
                 lighting.SupportingLightShadows = LightShadows.None;
                 lighting.SupportingLightShadowResolution = RoomLightShadowResolutionTier.Low;
-                lighting.Configure(stripRenderers.ToArray(), lights, doorwayFrames);
+                lighting.Configure(stripRenderers.ToArray(), lights, doorwayFrames, doorwayLights);
                 lighting.ApplySettings();
 
                 GameObject volumeObject = new GameObject("Interior Volume");
@@ -810,24 +847,35 @@ namespace WhatLightRemains.Editor
             try
             {
                 root.layer = layers.Player;
-                CharacterController controller = root.AddComponent<CharacterController>();
-                controller.height = 1.8f;
-                controller.radius = 0.30f;
-                controller.center = new Vector3(0f, 0.9f, 0f);
-                controller.stepOffset = 0.30f;
-                controller.slopeLimit = 50f;
-                controller.skinWidth = 0.03f;
+                CapsuleCollider capsule = root.AddComponent<CapsuleCollider>();
+                capsule.direction = 1;
+                capsule.height = 1.8f;
+                capsule.radius = 0.30f;
+                capsule.center = Vector3.zero;
+                Rigidbody body = root.AddComponent<Rigidbody>();
+                body.isKinematic = true;
+                body.useGravity = false;
+                body.interpolation = RigidbodyInterpolation.Interpolate;
+                body.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+                body.constraints = RigidbodyConstraints.FreezeRotation;
 
                 FirstPersonInput input = root.AddComponent<FirstPersonInput>();
                 PlayerRoomTracker tracker = root.AddComponent<PlayerRoomTracker>();
+                KinematicCapsuleMover mover = root.AddComponent<KinematicCapsuleMover>();
+                PlayerGravityAlignment alignment = root.AddComponent<PlayerGravityAlignment>();
+                PlayerLadderTraversal ladderTraversal = root.AddComponent<PlayerLadderTraversal>();
                 FirstPersonMotor motor = root.AddComponent<FirstPersonMotor>();
                 PlayerLook look = root.AddComponent<PlayerLook>();
                 RoomCreationController roomCreation = root.AddComponent<RoomCreationController>();
                 input.Configure(inputActions);
-                motor.Configure(controller, input, tracker);
+                mover.Configure(capsule, body);
+                mover.SetDimensions(1.8f, 0.30f, true);
 
-                Transform pitch = NewChild(root.transform, "Pitch Pivot");
-                pitch.localPosition = new Vector3(0f, 1.65f, 0f);
+                Transform yaw = NewChild(root.transform, "Yaw Pivot");
+                Transform pitch = NewChild(yaw, "Pitch Pivot");
+                // The physical root starts 0.93 m above the floor (3 cm skin clearance),
+                // so a 0.72 m offset preserves the requested 1.65 m eye height.
+                pitch.localPosition = new Vector3(0f, 0.72f, 0f);
                 pitch.localRotation = Quaternion.Euler(-6f, 0f, 0f);
 
                 GameObject mainCameraObject = new GameObject("Main Camera", typeof(Camera), typeof(AudioListener));
@@ -874,8 +922,9 @@ namespace WhatLightRemains.Editor
                     renderer.receiveShadows = true;
                 }
 
-                look.Configure(input, root.transform, pitch, mainCamera);
+                look.Configure(input, yaw, pitch, mainCamera);
                 look.FieldOfView = 75f;
+                motor.Configure(mover, input, tracker, alignment, ladderTraversal, yaw);
                 roomCreation.Configure(input, tracker, look, mainCamera, roomPreview);
                 return PrefabUtility.SaveAsPrefabAsset(root, PlayerPrefabPath);
             }
@@ -964,7 +1013,25 @@ namespace WhatLightRemains.Editor
                 Outline instructionOutline = creationInstruction.gameObject.AddComponent<Outline>();
                 instructionOutline.effectColor = new Color(0f, 0f, 0f, 0.92f);
                 instructionOutline.effectDistance = new Vector2(2f, -2f);
-                root.GetComponent<RoomCreationPromptView>().Configure(creationInstruction);
+
+                Text rotationInstruction = CreateUiText(
+                    "Room Rotation Instruction",
+                    canvasObject.transform,
+                    RoomCreationPromptView.RotationIdleText,
+                    20,
+                    TextAnchor.MiddleCenter);
+                RectTransform rotationRect = rotationInstruction.rectTransform;
+                rotationRect.anchorMin = new Vector2(0.5f, 0f);
+                rotationRect.anchorMax = new Vector2(0.5f, 0f);
+                rotationRect.pivot = new Vector2(0.5f, 0f);
+                rotationRect.anchoredPosition = new Vector2(0f, 98f);
+                rotationRect.sizeDelta = new Vector2(680f, 38f);
+                Outline rotationOutline = rotationInstruction.gameObject.AddComponent<Outline>();
+                rotationOutline.effectColor = new Color(0f, 0f, 0f, 0.94f);
+                rotationOutline.effectDistance = new Vector2(2f, -2f);
+                root.GetComponent<RoomCreationPromptView>().Configure(
+                    creationInstruction,
+                    rotationInstruction);
 
                 GameObject glassPanel = CreateUiImage(
                     "Glass Opacity Panel",
@@ -1071,7 +1138,9 @@ namespace WhatLightRemains.Editor
             cluster.Configure(room, cubePrefab.GetComponent<CubeRoom>(), 0);
 
             PlayerRoomTracker tracker = InstantiatePrefab<PlayerRoomTracker>(playerPrefab);
-            tracker.transform.SetPositionAndRotation(new Vector3(0f, 0.06f, 0f), Quaternion.Euler(0f, 45f, 0f));
+            tracker.transform.SetPositionAndRotation(new Vector3(0f, 0.93f, 0f), Quaternion.identity);
+            Transform yaw = tracker.transform.Find("Yaw Pivot");
+            if (yaw != null) yaw.localRotation = Quaternion.Euler(0f, 45f, 0f);
             tracker.Initialize(cluster.PrimaryRoom);
             GameObject hotbar = (GameObject)PrefabUtility.InstantiatePrefab(hotbarPrefab);
             tracker.GetComponent<RoomCreationController>().Initialize(
@@ -1096,7 +1165,9 @@ namespace WhatLightRemains.Editor
             receivingRoom.SetLightingEnabled(false);
 
             PlayerRoomTracker tracker = InstantiatePrefab<PlayerRoomTracker>(playerPrefab);
-            tracker.transform.SetPositionAndRotation(new Vector3(0f, 0.06f, 0f), Quaternion.Euler(0f, 90f, 0f));
+            tracker.transform.SetPositionAndRotation(new Vector3(0f, 0.93f, 0f), Quaternion.identity);
+            Transform validationYaw = tracker.transform.Find("Yaw Pivot");
+            if (validationYaw != null) validationYaw.localRotation = Quaternion.Euler(0f, 90f, 0f);
             tracker.Initialize(sourceRoom);
             PrefabUtility.InstantiatePrefab(hotbarPrefab);
 
@@ -1275,6 +1346,11 @@ namespace WhatLightRemains.Editor
                     false,
                     true),
             };
+            CreateDoorwayFrameEmitters(
+                boundaryObject.transform,
+                doorwayCenterY,
+                frameSideX,
+                frameHeaderY);
 
             const float baseTrimHeight = 0.12f;
             const float baseTrimDepth = 0.12f;
@@ -1349,6 +1425,246 @@ namespace WhatLightRemains.Editor
                 closedCollider,
                 doorwayColliders);
             return boundary;
+        }
+
+        private static CubeRoomCeilingBoundary CreateCeilingBoundary(
+            CubeRoom room,
+            Transform glassParent,
+            Transform colliderParent,
+            Material glassMaterial,
+            Material frameMaterial,
+            Material stripHousingMaterial,
+            Material ladderMaterial)
+        {
+            GameObject boundaryObject = new GameObject("Ceiling Boundary");
+            boundaryObject.transform.SetParent(glassParent, false);
+            CubeRoomCeilingBoundary boundary = boundaryObject.AddComponent<CubeRoomCeilingBoundary>();
+
+            Renderer closedGlass = CreateGlassPane(
+                "Glass Ceiling",
+                boundaryObject.transform,
+                new Vector3(0f, CubeRoom.InteriorHeight, 0f),
+                new Vector3(90f, 0f, 0f),
+                glassMaterial);
+            BoxCollider closedCollider = CreateBoxCollider(
+                "Ceiling Collider",
+                colliderParent,
+                new Vector3(0f, CubeRoom.InteriorHeight + 0.05f, 0f),
+                new Vector3(8.2f, 0.10f, 8.2f));
+
+            (RoomCeilingEdge edge, Vector3 inward)[] definitions =
+            {
+                (RoomCeilingEdge.West, Vector3.right),
+                (RoomCeilingEdge.East, Vector3.left),
+                (RoomCeilingEdge.South, Vector3.forward),
+                (RoomCeilingEdge.North, Vector3.back),
+            };
+            List<CubeRoomCeilingBoundary.EdgeVariant> variants =
+                new List<CubeRoomCeilingBoundary.EdgeVariant>(definitions.Length);
+            foreach ((RoomCeilingEdge edge, Vector3 inward) definition in definitions)
+            {
+                GameObject passageRoot = new GameObject(definition.edge + " Ceiling Passage");
+                passageRoot.transform.SetParent(boundaryObject.transform, false);
+                passageRoot.transform.localPosition = new Vector3(0f, CubeRoom.InteriorHeight, 0f);
+                // This maps the familiar side-wall X/Y layout onto the ceiling: local -Y is
+                // the selected outer edge and local +Z points down into the source room.
+                passageRoot.transform.localRotation = Quaternion.LookRotation(Vector3.down, definition.inward);
+
+                float sideWidth = (CubeRoom.InteriorWidth - CubeRoom.DoorwayWidth) * 0.5f;
+                float sideCenter = CubeRoom.DoorwayWidth * 0.5f + sideWidth * 0.5f;
+                float headerHeight = CubeRoom.InteriorHeight - CubeRoom.DoorwayHeight;
+                float headerCenter = -CubeRoom.InteriorHeight * 0.5f
+                    + CubeRoom.DoorwayHeight
+                    + headerHeight * 0.5f;
+                List<Renderer> renderers = new List<Renderer>
+                {
+                    CreateGlassSection("Ceiling Doorway Glass Left", passageRoot.transform,
+                        new Vector3(-sideCenter, 0f, 0f), new Vector2(sideWidth, CubeRoom.InteriorHeight), glassMaterial),
+                    CreateGlassSection("Ceiling Doorway Glass Right", passageRoot.transform,
+                        new Vector3(sideCenter, 0f, 0f), new Vector2(sideWidth, CubeRoom.InteriorHeight), glassMaterial),
+                    CreateGlassSection("Ceiling Doorway Glass Header", passageRoot.transform,
+                        new Vector3(0f, headerCenter, 0f), new Vector2(CubeRoom.DoorwayWidth, headerHeight), glassMaterial),
+                };
+
+                const float frameWidth = 0.14f;
+                const float frameDepth = 0.14f;
+                float doorwayCenterY = -CubeRoom.InteriorHeight * 0.5f + CubeRoom.DoorwayHeight * 0.5f;
+                float frameSideX = CubeRoom.DoorwayWidth * 0.5f + frameWidth * 0.5f;
+                float frameHeaderY = -CubeRoom.InteriorHeight * 0.5f + CubeRoom.DoorwayHeight + frameWidth * 0.5f;
+                renderers.Add(CreateCube("Doorway Frame Ceiling Left", passageRoot.transform,
+                    new Vector3(-frameSideX, doorwayCenterY, 0f),
+                    new Vector3(frameWidth, CubeRoom.DoorwayHeight, frameDepth), frameMaterial, false, false));
+                renderers.Add(CreateCube("Doorway Frame Ceiling Right", passageRoot.transform,
+                    new Vector3(frameSideX, doorwayCenterY, 0f),
+                    new Vector3(frameWidth, CubeRoom.DoorwayHeight, frameDepth), frameMaterial, false, false));
+                renderers.Add(CreateCube("Doorway Frame Ceiling Header", passageRoot.transform,
+                    new Vector3(0f, frameHeaderY, 0f),
+                    new Vector3(CubeRoom.DoorwayWidth + frameWidth * 2f, frameWidth, frameDepth), frameMaterial, false, false));
+                CreateDoorwayFrameEmitters(passageRoot.transform, doorwayCenterY, frameSideX, frameHeaderY);
+
+                // Replace the selected full perimeter strip with two segments so the light
+                // itself never spans the 2 m aperture. The matching proxy emitters live under
+                // this same passage root and therefore follow its active state exactly.
+                const float passageStripWidth = 0.07f;
+                renderers.Add(CreateCube("Strip Ceiling Passage Left", passageRoot.transform,
+                    new Vector3(-sideCenter, -3.87f, 0.13f),
+                    new Vector3(sideWidth, passageStripWidth, passageStripWidth), frameMaterial, false, false));
+                renderers.Add(CreateCube("Strip Ceiling Passage Right", passageRoot.transform,
+                    new Vector3(sideCenter, -3.87f, 0.13f),
+                    new Vector3(sideWidth, passageStripWidth, passageStripWidth), frameMaterial, false, false));
+                renderers.Add(CreateCube("Housing Ceiling Passage Left", passageRoot.transform,
+                    new Vector3(-sideCenter, -3.95f, 0.05f),
+                    new Vector3(sideWidth, 0.14f, 0.14f), stripHousingMaterial, false, false));
+                renderers.Add(CreateCube("Housing Ceiling Passage Right", passageRoot.transform,
+                    new Vector3(sideCenter, -3.95f, 0.05f),
+                    new Vector3(sideWidth, 0.14f, 0.14f), stripHousingMaterial, false, false));
+                CreatePassageStripEmitter(passageRoot.transform, "Left", new Vector3(-sideCenter, -3.87f, 0.13f));
+                CreatePassageStripEmitter(passageRoot.transform, "Right", new Vector3(sideCenter, -3.87f, 0.13f));
+
+                const float trimHeight = 0.12f;
+                const float trimDepth = 0.12f;
+                float trimY = -CubeRoom.InteriorHeight * 0.5f + trimHeight * 0.5f;
+                renderers.Add(CreateCube("Ceiling Opening Edge Trim Left", passageRoot.transform,
+                    new Vector3(-sideCenter, trimY, 0.05f),
+                    new Vector3(sideWidth, trimHeight, trimDepth), ladderMaterial, false, false));
+                renderers.Add(CreateCube("Ceiling Opening Edge Trim Right", passageRoot.transform,
+                    new Vector3(sideCenter, trimY, 0.05f),
+                    new Vector3(sideWidth, trimHeight, trimDepth), ladderMaterial, false, false));
+
+                float colliderSideWidth = (8.2f - CubeRoom.DoorwayWidth) * 0.5f;
+                float colliderSideCenter = CubeRoom.DoorwayWidth * 0.5f + colliderSideWidth * 0.5f;
+                Collider[] passageColliders =
+                {
+                    CreateBoxCollider("Ceiling Doorway Collider Left", passageRoot.transform,
+                        new Vector3(-colliderSideCenter, 0f, 0.05f),
+                        new Vector3(colliderSideWidth, CubeRoom.InteriorHeight, 0.10f)),
+                    CreateBoxCollider("Ceiling Doorway Collider Right", passageRoot.transform,
+                        new Vector3(colliderSideCenter, 0f, 0.05f),
+                        new Vector3(colliderSideWidth, CubeRoom.InteriorHeight, 0.10f)),
+                    CreateBoxCollider("Ceiling Doorway Collider Header", passageRoot.transform,
+                        new Vector3(0f, headerCenter, 0.05f),
+                        new Vector3(CubeRoom.DoorwayWidth, headerHeight, 0.10f)),
+                };
+
+                BuildCeilingLadder(room, passageRoot.transform, ladderMaterial, renderers);
+                variants.Add(new CubeRoomCeilingBoundary.EdgeVariant(
+                    definition.edge,
+                    renderers.ToArray(),
+                    passageColliders,
+                    passageRoot));
+            }
+
+            boundary.Configure(
+                new[] { closedGlass },
+                new Collider[] { closedCollider },
+                variants.ToArray());
+            return boundary;
+        }
+
+        private static void BuildCeilingLadder(
+            CubeRoom lowerRoom,
+            Transform passageRoot,
+            Material material,
+            ICollection<Renderer> renderers)
+        {
+            Transform ladderRoot = NewChild(passageRoot, "Ceiling Ladder");
+            CeilingLadder ladder = ladderRoot.gameObject.AddComponent<CeilingLadder>();
+            const float openingCenter = -2.8f;
+            const float bottomZ = 7.05f;
+            const float topZ = -0.85f;
+            float centerZ = (bottomZ + topZ) * 0.5f;
+            float length = bottomZ - topZ;
+            renderers.Add(CreateCube("Ladder Rail Left", ladderRoot, new Vector3(-0.38f, openingCenter, centerZ),
+                new Vector3(0.08f, 0.08f, length), material, false, false));
+            renderers.Add(CreateCube("Ladder Rail Right", ladderRoot, new Vector3(0.38f, openingCenter, centerZ),
+                new Vector3(0.08f, 0.08f, length), material, false, false));
+            for (int index = 0; index < 12; index++)
+            {
+                float z = Mathf.Lerp(bottomZ - 0.25f, topZ + 0.25f, index / 11f);
+                renderers.Add(CreateCube($"Ladder Rung {index + 1:00}", ladderRoot,
+                    new Vector3(0f, openingCenter, z),
+                    new Vector3(0.82f, 0.06f, 0.06f), material, false, false));
+            }
+
+            Transform lowerMount = NewChild(ladderRoot, "Lower Mount");
+            lowerMount.localPosition = new Vector3(0f, openingCenter, bottomZ);
+            Transform upperMount = NewChild(ladderRoot, "Upper Mount");
+            upperMount.localPosition = new Vector3(0f, openingCenter, topZ);
+            Transform lowerExit = NewChild(ladderRoot, "Lower Exit");
+            lowerExit.localPosition = new Vector3(0f, openingCenter + 0.35f, bottomZ);
+            Transform upperExit = NewChild(ladderRoot, "Upper Exit");
+            // The destination room's floor is the outer edge of this aperture. Its
+            // room-relative up points toward local -Y, so a centered 1.8 m capsule is
+            // grounded at 0.93 m from that edge after gravity alignment.
+            upperExit.localPosition = new Vector3(0f, -3.07f, topZ);
+            BoxCollider trigger = CreateBoxCollider("Ladder Trigger", ladderRoot,
+                new Vector3(0f, openingCenter, centerZ),
+                new Vector3(1.15f, 0.9f, length + 0.2f));
+            trigger.isTrigger = true;
+            ladder.Configure(lowerRoom, null, lowerMount, upperMount, lowerExit, upperExit);
+        }
+
+        private static void CreateDoorwayFrameEmitters(
+            Transform parent,
+            float doorwayCenterY,
+            float frameSideX,
+            float frameHeaderY)
+        {
+            (string label, Vector3 position)[] sites =
+            {
+                ("Left", new Vector3(-frameSideX, doorwayCenterY, 0f)),
+                ("Right", new Vector3(frameSideX, doorwayCenterY, 0f)),
+                ("Header", new Vector3(0f, frameHeaderY, 0f)),
+            };
+            foreach ((string label, Vector3 position) site in sites)
+            {
+                CreateDoorwayEmitter(parent, site.label + " Inward", site.position + Vector3.forward * 0.025f, Vector3.forward);
+                CreateDoorwayEmitter(parent, site.label + " Outward", site.position + Vector3.back * 0.025f, Vector3.back);
+            }
+        }
+
+        private static Light CreateDoorwayEmitter(Transform parent, string label, Vector3 position, Vector3 direction)
+        {
+            GameObject gameObject = new GameObject("Doorway Emitter " + label);
+            gameObject.transform.SetParent(parent, false);
+            gameObject.transform.localPosition = position;
+            gameObject.transform.localRotation = Quaternion.LookRotation(direction, Vector3.up);
+            Light light = gameObject.AddComponent<Light>();
+            light.type = LightType.Spot;
+            light.lightmapBakeType = LightmapBakeType.Realtime;
+            light.color = NeutralWhite;
+            light.intensity = 0.425f;
+            light.range = 12f;
+            light.spotAngle = 170f;
+            light.innerSpotAngle = 160f;
+            light.shadows = LightShadows.None;
+            light.shadowNearPlane = 0.05f;
+            light.cullingMask = ~0;
+            light.renderingLayerMask = ~0;
+            light.renderMode = LightRenderMode.ForcePixel;
+            return light;
+        }
+
+        private static Light CreatePassageStripEmitter(Transform parent, string label, Vector3 position)
+        {
+            GameObject gameObject = new GameObject("Strip Passage Emitter " + label);
+            gameObject.transform.SetParent(parent, false);
+            gameObject.transform.localPosition = position;
+            gameObject.transform.localRotation = Quaternion.LookRotation(Vector3.forward, Vector3.up);
+            Light light = gameObject.AddComponent<Light>();
+            light.type = LightType.Spot;
+            light.lightmapBakeType = LightmapBakeType.Realtime;
+            light.color = NeutralWhite;
+            light.intensity = 0.85f;
+            light.range = 12f;
+            light.spotAngle = 170f;
+            light.innerSpotAngle = 160f;
+            light.shadows = LightShadows.None;
+            light.shadowNearPlane = 0.05f;
+            light.cullingMask = ~0;
+            light.renderingLayerMask = ~0;
+            light.renderMode = LightRenderMode.ForcePixel;
+            return light;
         }
 
         private static Renderer CreateGlassSection(
@@ -1540,7 +1856,11 @@ namespace WhatLightRemains.Editor
                 { ""name"": ""ReleaseCursor"", ""type"": ""Button"", ""id"": ""b75f8437-030b-4f69-a654-0ef177ac9fb1"", ""expectedControlType"": ""Button"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": false },
                 { ""name"": ""CaptureCursor"", ""type"": ""Button"", ""id"": ""f3525105-cb20-4cd8-bf43-ef95eb8ee037"", ""expectedControlType"": ""Button"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": false },
                 { ""name"": ""ToggleCreate"", ""type"": ""Button"", ""id"": ""fe1131a6-5d0b-4c84-b97b-110f5f2a77ac"", ""expectedControlType"": ""Button"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": false },
-                { ""name"": ""PlaceRoom"", ""type"": ""Button"", ""id"": ""48ba252b-3562-44d1-936c-88f433ab2d51"", ""expectedControlType"": ""Button"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": false }
+                { ""name"": ""PlaceRoom"", ""type"": ""Button"", ""id"": ""48ba252b-3562-44d1-936c-88f433ab2d51"", ""expectedControlType"": ""Button"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": false },
+                { ""name"": ""Sprint"", ""type"": ""Button"", ""id"": ""d1f3b5dc-d57c-48d6-a369-6545085ec79e"", ""expectedControlType"": ""Button"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": true },
+                { ""name"": ""RotateModifier"", ""type"": ""Button"", ""id"": ""23d2106b-77e8-4f37-8a68-4c8e163cfed4"", ""expectedControlType"": ""Button"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": true },
+                { ""name"": ""AlternateRotationAxis"", ""type"": ""Button"", ""id"": ""05e33d90-555f-486f-aa8a-87a8f4818763"", ""expectedControlType"": ""Button"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": true },
+                { ""name"": ""RotationScroll"", ""type"": ""Value"", ""id"": ""348de50f-ebd6-43cc-a07c-349b7b54bfa9"", ""expectedControlType"": ""Vector2"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": true }
             ],
             ""bindings"": [
                 { ""name"": ""WASD"", ""id"": ""547d0149-dfbb-4be4-b147-475b0ceaa247"", ""path"": ""2DVector"", ""interactions"": """", ""processors"": """", ""groups"": """", ""action"": ""Move"", ""isComposite"": true, ""isPartOfComposite"": false },
@@ -1553,7 +1873,13 @@ namespace WhatLightRemains.Editor
                 { ""name"": """", ""id"": ""27d14848-d21b-4275-9b98-05ca76289f74"", ""path"": ""<Keyboard>/escape"", ""interactions"": """", ""processors"": """", ""groups"": """", ""action"": ""ReleaseCursor"", ""isComposite"": false, ""isPartOfComposite"": false },
                 { ""name"": """", ""id"": ""7eb4af7e-76e6-4b7a-bd29-b6fa98d1b3be"", ""path"": ""<Mouse>/leftButton"", ""interactions"": """", ""processors"": """", ""groups"": """", ""action"": ""CaptureCursor"", ""isComposite"": false, ""isPartOfComposite"": false },
                 { ""name"": """", ""id"": ""6328840f-0870-4f0f-9024-1e0a246302a4"", ""path"": ""<Keyboard>/c"", ""interactions"": ""Press"", ""processors"": """", ""groups"": """", ""action"": ""ToggleCreate"", ""isComposite"": false, ""isPartOfComposite"": false },
-                { ""name"": """", ""id"": ""0d660884-6f90-4f75-8d97-dd5df83e3faa"", ""path"": ""<Mouse>/leftButton"", ""interactions"": ""Press"", ""processors"": """", ""groups"": """", ""action"": ""PlaceRoom"", ""isComposite"": false, ""isPartOfComposite"": false }
+                { ""name"": """", ""id"": ""0d660884-6f90-4f75-8d97-dd5df83e3faa"", ""path"": ""<Mouse>/leftButton"", ""interactions"": ""Press"", ""processors"": """", ""groups"": """", ""action"": ""PlaceRoom"", ""isComposite"": false, ""isPartOfComposite"": false },
+                { ""name"": """", ""id"": ""0ce9cf3e-ffb1-42e1-8960-fd83f247f687"", ""path"": ""<Keyboard>/leftShift"", ""interactions"": """", ""processors"": """", ""groups"": """", ""action"": ""Sprint"", ""isComposite"": false, ""isPartOfComposite"": false },
+                { ""name"": """", ""id"": ""4d07b074-e94d-42c6-b4d1-65f6d6b9e6e5"", ""path"": ""<Keyboard>/leftCtrl"", ""interactions"": """", ""processors"": """", ""groups"": """", ""action"": ""RotateModifier"", ""isComposite"": false, ""isPartOfComposite"": false },
+                { ""name"": """", ""id"": ""67978e59-3b69-4139-a50f-f018bb7e6130"", ""path"": ""<Keyboard>/rightCtrl"", ""interactions"": """", ""processors"": """", ""groups"": """", ""action"": ""RotateModifier"", ""isComposite"": false, ""isPartOfComposite"": false },
+                { ""name"": """", ""id"": ""60b07283-3630-407e-abee-0b6e57b8f4a1"", ""path"": ""<Keyboard>/leftAlt"", ""interactions"": """", ""processors"": """", ""groups"": """", ""action"": ""AlternateRotationAxis"", ""isComposite"": false, ""isPartOfComposite"": false },
+                { ""name"": """", ""id"": ""9707ed9c-0e82-48e5-9baa-29e43097d73b"", ""path"": ""<Keyboard>/rightAlt"", ""interactions"": """", ""processors"": """", ""groups"": """", ""action"": ""AlternateRotationAxis"", ""isComposite"": false, ""isPartOfComposite"": false },
+                { ""name"": """", ""id"": ""34b638e9-cfc2-4ba5-87a4-084f71cd3f84"", ""path"": ""<Mouse>/scroll"", ""interactions"": """", ""processors"": """", ""groups"": """", ""action"": ""RotationScroll"", ""isComposite"": false, ""isPartOfComposite"": false }
             ]
         }
     ],

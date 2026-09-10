@@ -69,6 +69,19 @@ namespace WhatLightRemains.Tests
         }
 
         [Test]
+        public void ComputePlanarVelocity_UsesStableFallbackWhenLookingAlongGravityAxis()
+        {
+            Vector3 result = FirstPersonMotor.ComputePlanarVelocity(
+                Vector2.up,
+                Vector3.forward,
+                Vector3.forward,
+                3f);
+
+            Assert.That(result.magnitude, Is.EqualTo(3f).Within(0.0001f));
+            Assert.That(Vector3.Dot(result, Vector3.forward), Is.EqualTo(0f).Within(0.0001f));
+        }
+
+        [Test]
         public void CalculateJumpSpeed_ProducesRequestedBallisticHeight()
         {
             const float jumpHeight = 1f;
@@ -79,6 +92,39 @@ namespace WhatLightRemains.Tests
 
             Assert.That(jumpSpeed, Is.EqualTo(Mathf.Sqrt(2f * gravityMagnitude)).Within(0.0001f));
             Assert.That(resultingHeight, Is.EqualTo(jumpHeight).Within(0.0001f));
+        }
+
+        [Test]
+        public void ComputePlanarVelocity_SprintUsesSixMetersPerSecondWithoutChangingDirection()
+        {
+            Vector3 walk = FirstPersonMotor.ComputePlanarVelocity(
+                Vector2.one,
+                Vector3.forward,
+                Vector3.up,
+                3f);
+            Vector3 sprint = FirstPersonMotor.ComputePlanarVelocity(
+                Vector2.one,
+                Vector3.forward,
+                Vector3.up,
+                6f);
+
+            Assert.That(walk.magnitude, Is.EqualTo(3f).Within(0.0001f));
+            Assert.That(sprint.magnitude, Is.EqualTo(6f).Within(0.0001f));
+            Assert.That(Vector3.Dot(walk.normalized, sprint.normalized), Is.EqualTo(1f).Within(0.0001f));
+        }
+
+        [TestCase(1f, 0f, 0f)]
+        [TestCase(0f, -1f, 0f)]
+        [TestCase(0f, 0f, 1f)]
+        public void GravityAlignment_TargetRotationAdoptsRequestedUp(float x, float y, float z)
+        {
+            Vector3 targetUp = new Vector3(x, y, z);
+            Quaternion result = PlayerGravityAlignment.CalculateTargetRotation(
+                Quaternion.LookRotation(Vector3.forward, Vector3.up),
+                targetUp);
+
+            Assert.That(Vector3.Angle(result * Vector3.up, targetUp), Is.LessThan(0.001f));
+            Assert.That(Vector3.Dot(result * Vector3.forward, targetUp), Is.EqualTo(0f).Within(0.0001f));
         }
     }
 }

@@ -3,6 +3,7 @@ using UnityEngine;
 namespace WhatLightRemains.Runtime
 {
     [DisallowMultipleComponent]
+    [DefaultExecutionOrder(100)]
     public sealed class PlayerLook : MonoBehaviour
     {
         [SerializeField] private FirstPersonInput input;
@@ -35,6 +36,8 @@ namespace WhatLightRemains.Runtime
 
         public float Pitch => pitch;
         public bool IsCursorCaptured { get; private set; }
+        public Transform YawRoot => yawRoot;
+        public Transform PitchCamera => pitchCamera;
 
         public void Configure(
             FirstPersonInput inputSource,

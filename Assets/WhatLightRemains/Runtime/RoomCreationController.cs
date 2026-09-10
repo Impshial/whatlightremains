@@ -16,11 +16,14 @@ namespace WhatLightRemains.Runtime
 
         private RoomGhostPreview preview;
         private RoomPlacementCandidate candidate;
+        private CubeRoom orientationSourceRoom;
+        private RoomOrientation previewOrientation = RoomOrientation.Identity;
 
         public bool IsCreateMode { get; private set; }
         public bool HasValidPreview => candidate.IsValid && preview != null && preview.IsVisible;
         public RoomPlacementCandidate Candidate => candidate;
         public GameObject PreviewObject => preview?.Root;
+        public RoomOrientation PreviewOrientation => previewOrientation;
 
         public void Configure(FirstPersonInput inputSource, PlayerRoomTracker tracker, PlayerLook look, Camera camera, Material material)
         {
@@ -47,6 +50,9 @@ namespace WhatLightRemains.Runtime
             }
 
             IsCreateMode = true;
+            orientationSourceRoom = null;
+            previewOrientation = RoomOrientation.Identity;
+            input?.ClearRotationScroll();
             ClearCandidate();
             promptView?.SetCreateMode(true);
             return true;
@@ -56,6 +62,9 @@ namespace WhatLightRemains.Runtime
         {
             IsCreateMode = false;
             candidate = default;
+            orientationSourceRoom = null;
+            previewOrientation = RoomOrientation.Identity;
+            input?.ClearRotationScroll();
             DisposePreview();
             promptView?.SetCreateMode(false);
         }
@@ -72,9 +81,15 @@ namespace WhatLightRemains.Runtime
             if (currentRoom == null
                 || roomLayout == null
                 || !roomLayout.IsRegistered(currentRoom)
-                || !RoomPlacementTargeting.TrySelectSideWall(currentRoom, viewRay, out CubeRoomWall wall)
-                || currentRoom.HasDoorway(wall)
-                || !roomLayout.TryGetPlacementCandidate(currentRoom, wall, out RoomPlacementCandidate proposed))
+                || !RoomPlacementTargeting.TryGetFirstBoundary(currentRoom, viewRay, out RoomBoundaryHit hit)
+                || !TryConvertTargetFace(hit.Boundary, out CubeRoomFace face))
+            {
+                ClearCandidate();
+                return false;
+            }
+
+            EnsureOrientationForRoom(currentRoom);
+            if (!roomLayout.TryGetPlacementCandidate(currentRoom, face, previewOrientation, out RoomPlacementCandidate proposed))
             {
                 ClearCandidate();
                 return false;
@@ -99,9 +114,7 @@ namespace WhatLightRemains.Runtime
                 return false;
             }
 
-            CubeRoom sourceRoom = candidate.SourceRoom;
-            CubeRoomWall sourceWall = candidate.SourceWall;
-            if (!roomLayout.TryPlaceRoom(sourceRoom, sourceWall, out _))
+            if (!roomLayout.TryPlaceRoom(candidate, out _))
             {
                 ClearCandidate();
                 return false;
@@ -141,6 +154,8 @@ namespace WhatLightRemains.Runtime
                 return;
             }
 
+            UpdateRotationPrompt();
+            ApplyRotationInput();
             Ray viewRay = GetCenterViewRay();
             RefreshTarget(viewRay);
             if (input.PlaceRoomPressedThisFrame && !GlassOpacityControl.IsPointerOverControl())
@@ -194,7 +209,67 @@ namespace WhatLightRemains.Runtime
         {
             if (preview == null && previewMaterial != null)
             {
-                preview = RoomGhostPreview.Create(previewMaterial);
+                preview = RoomGhostPreview.Create(previewMaterial, roomLayout != null ? roomLayout.RoomPrefab : null);
+            }
+        }
+
+        private void ApplyRotationInput()
+        {
+            if (input == null || !input.RotateModifierHeld)
+            {
+                input?.ClearRotationScroll();
+                return;
+            }
+
+            CubeRoom currentRoom = roomTracker != null ? roomTracker.CurrentRoom : null;
+            if (currentRoom == null || roomLayout == null || roomLayout.PrimaryRoom == null) return;
+            EnsureOrientationForRoom(currentRoom);
+            int steps = input.ConsumeRotationScrollSteps();
+            if (steps == 0) return;
+
+            RoomOrientation sourceOrientation = roomLayout.TryGetOrientation(currentRoom, out RoomOrientation registered)
+                ? registered
+                : RoomOrientation.FromRotation(currentRoom.transform.rotation, roomLayout.PrimaryRoom.transform.rotation);
+            Vector3Int sourceLocalAxis = input.AlternateRotationAxisHeld
+                ? new Vector3Int(0, 0, 1)
+                : Vector3Int.up;
+            Vector3Int gridAxis = sourceOrientation.TransformDirection(sourceLocalAxis);
+            previewOrientation = previewOrientation.RotateAroundGridAxis(gridAxis, steps);
+            ClearCandidate();
+        }
+
+        private void EnsureOrientationForRoom(CubeRoom currentRoom)
+        {
+            if (currentRoom == orientationSourceRoom) return;
+            orientationSourceRoom = currentRoom;
+            input?.ClearRotationScroll();
+            previewOrientation = roomLayout != null && roomLayout.TryGetOrientation(currentRoom, out RoomOrientation registered)
+                ? registered
+                : roomLayout != null && roomLayout.PrimaryRoom != null
+                    ? RoomOrientation.FromRotation(currentRoom.transform.rotation, roomLayout.PrimaryRoom.transform.rotation)
+                    : RoomOrientation.Identity;
+        }
+
+        private void UpdateRotationPrompt()
+        {
+            promptView?.SetRotationState(
+                IsCreateMode,
+                input != null && input.RotateModifierHeld,
+                input != null && input.RotateModifierHeld && input.AlternateRotationAxisHeld);
+        }
+
+        private static bool TryConvertTargetFace(RoomBoundaryKind boundary, out CubeRoomFace face)
+        {
+            switch (boundary)
+            {
+                case RoomBoundaryKind.West: face = CubeRoomFace.West; return true;
+                case RoomBoundaryKind.East: face = CubeRoomFace.East; return true;
+                case RoomBoundaryKind.South: face = CubeRoomFace.South; return true;
+                case RoomBoundaryKind.North: face = CubeRoomFace.North; return true;
+                case RoomBoundaryKind.Ceiling: face = CubeRoomFace.Ceiling; return true;
+                default:
+                    face = default;
+                    return false;
             }
         }
 

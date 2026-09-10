@@ -63,6 +63,25 @@ namespace WhatLightRemains.Runtime
             }
         }
 
+        public static bool TrySelectPlacementFace(CubeRoom room, Ray worldRay, out CubeRoomFace face)
+        {
+            face = default;
+            if (!TryGetFirstBoundary(room, worldRay, out RoomBoundaryHit hit))
+            {
+                return false;
+            }
+
+            switch (hit.Boundary)
+            {
+                case RoomBoundaryKind.West: face = CubeRoomFace.West; return true;
+                case RoomBoundaryKind.East: face = CubeRoomFace.East; return true;
+                case RoomBoundaryKind.South: face = CubeRoomFace.South; return true;
+                case RoomBoundaryKind.North: face = CubeRoomFace.North; return true;
+                case RoomBoundaryKind.Ceiling: face = CubeRoomFace.Ceiling; return true;
+                default: return false;
+            }
+        }
+
         public static bool TryGetFirstBoundary(CubeRoom room, Ray worldRay, out RoomBoundaryHit hit)
         {
             hit = default;

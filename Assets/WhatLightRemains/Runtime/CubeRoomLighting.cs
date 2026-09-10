@@ -20,10 +20,11 @@ namespace WhatLightRemains.Runtime
         [SerializeField] private Renderer[] stripRenderers = System.Array.Empty<Renderer>();
         [SerializeField] private Renderer[] doorwayFrameRenderers = System.Array.Empty<Renderer>();
         [SerializeField] private Light[] supportingLights = System.Array.Empty<Light>();
+        [SerializeField] private Light[] doorwayFrameLights = System.Array.Empty<Light>();
         [SerializeField] private Color stripColor = Color.white;
         [SerializeField, Min(0.001f)] private float stripWidth = 0.07f;
         [SerializeField, Min(0f)] private float emissionIntensity = 6f;
-        [SerializeField, Min(0f)] private float doorwayFrameEmissionIntensity = 1.35f;
+        [SerializeField, Range(0f, 1f)] private float doorwayFramePowerRatio = 0.5f;
         [SerializeField, Min(0f)] private float supportingLightIntensity = 0.85f;
         [SerializeField, Min(0.01f)] private float supportingLightRange = 12f;
         [SerializeField, Range(1f, 179f)] private float supportingLightSpotAngle = 170f;
@@ -76,10 +77,22 @@ namespace WhatLightRemains.Runtime
 
         public float DoorwayFrameEmissionIntensity
         {
-            get => doorwayFrameEmissionIntensity;
+            get => emissionIntensity * doorwayFramePowerRatio;
             set
             {
-                doorwayFrameEmissionIntensity = Mathf.Max(0f, value);
+                doorwayFramePowerRatio = emissionIntensity > 0.0001f
+                    ? Mathf.Clamp01(value / emissionIntensity)
+                    : 0f;
+                ApplySettings();
+            }
+        }
+
+        public float DoorwayFramePowerRatio
+        {
+            get => doorwayFramePowerRatio;
+            set
+            {
+                doorwayFramePowerRatio = Mathf.Clamp01(value);
                 ApplySettings();
             }
         }
@@ -139,14 +152,20 @@ namespace WhatLightRemains.Runtime
 
         public void Configure(Renderer[] strips, Light[] lights)
         {
-            Configure(strips, lights, null);
+            Configure(strips, lights, null, null);
         }
 
         public void Configure(Renderer[] strips, Light[] lights, Renderer[] doorwayFrames)
         {
+            Configure(strips, lights, doorwayFrames, null);
+        }
+
+        public void Configure(Renderer[] strips, Light[] lights, Renderer[] doorwayFrames, Light[] doorwayLights)
+        {
             stripRenderers = strips ?? System.Array.Empty<Renderer>();
             supportingLights = lights ?? System.Array.Empty<Light>();
             doorwayFrameRenderers = doorwayFrames ?? System.Array.Empty<Renderer>();
+            doorwayFrameLights = doorwayLights ?? System.Array.Empty<Light>();
             ApplySettings();
         }
 
@@ -155,6 +174,7 @@ namespace WhatLightRemains.Runtime
             stripRenderers ??= System.Array.Empty<Renderer>();
             doorwayFrameRenderers ??= System.Array.Empty<Renderer>();
             supportingLights ??= System.Array.Empty<Light>();
+            doorwayFrameLights ??= System.Array.Empty<Light>();
             propertyBlock ??= new MaterialPropertyBlock();
 
             for (int i = 0; i < stripRenderers.Length; i++)
@@ -177,7 +197,7 @@ namespace WhatLightRemains.Runtime
                 {
                     // Wall-boundary state owns visibility. Lighting only changes luminance so
                     // disabling a room does not accidentally close or reveal a doorway.
-                    ApplyEmission(frame, isLightingEnabled ? doorwayFrameEmissionIntensity : 0f);
+                    ApplyEmission(frame, isLightingEnabled ? emissionIntensity * doorwayFramePowerRatio : 0f);
                 }
             }
 
@@ -189,24 +209,17 @@ namespace WhatLightRemains.Runtime
                     continue;
                 }
 
-                supportingLight.color = stripColor;
-                supportingLight.intensity = supportingLightIntensity;
-                supportingLight.range = supportingLightRange;
-                supportingLight.shadows = supportingLightShadows;
-                if (supportingLight.type == LightType.Spot)
-                {
-                    supportingLight.spotAngle = supportingLightSpotAngle;
-                    supportingLight.innerSpotAngle = Mathf.Min(
-                        supportingLightInnerSpotAngle,
-                        supportingLightSpotAngle);
-                }
-                if (Application.isPlaying)
-                {
-                    supportingLight.GetUniversalAdditionalLightData().additionalLightsShadowResolutionTier =
-                        (int)supportingLightShadowResolution;
-                }
-
+                ApplyLightSettings(supportingLight, supportingLightIntensity);
                 supportingLight.enabled = isLightingEnabled;
+            }
+
+
+            for (int i = 0; i < doorwayFrameLights.Length; i++)
+            {
+                Light doorwayLight = doorwayFrameLights[i];
+                if (doorwayLight == null) continue;
+                ApplyLightSettings(doorwayLight, supportingLightIntensity * doorwayFramePowerRatio);
+                doorwayLight.enabled = isLightingEnabled && DoorwayLightOwnsActivePassage(doorwayLight);
             }
         }
 
@@ -225,7 +238,7 @@ namespace WhatLightRemains.Runtime
         {
             stripWidth = Mathf.Max(0.001f, stripWidth);
             emissionIntensity = Mathf.Max(0f, emissionIntensity);
-            doorwayFrameEmissionIntensity = Mathf.Max(0f, doorwayFrameEmissionIntensity);
+            doorwayFramePowerRatio = Mathf.Clamp01(doorwayFramePowerRatio);
             supportingLightIntensity = Mathf.Max(0f, supportingLightIntensity);
             supportingLightRange = Mathf.Max(0.01f, supportingLightRange);
             supportingLightSpotAngle = Mathf.Clamp(supportingLightSpotAngle, 1f, 179f);
@@ -234,6 +247,32 @@ namespace WhatLightRemains.Runtime
                 0f,
                 supportingLightSpotAngle);
             ApplySettings();
+        }
+
+        private void ApplyLightSettings(Light light, float intensity)
+        {
+            light.color = stripColor;
+            light.intensity = Mathf.Max(0f, intensity);
+            light.range = supportingLightRange;
+            light.shadows = supportingLightShadows;
+            if (light.type == LightType.Spot)
+            {
+                light.spotAngle = supportingLightSpotAngle;
+                light.innerSpotAngle = Mathf.Min(supportingLightInnerSpotAngle, supportingLightSpotAngle);
+            }
+            if (Application.isPlaying)
+            {
+                light.GetUniversalAdditionalLightData().additionalLightsShadowResolutionTier =
+                    (int)supportingLightShadowResolution;
+            }
+        }
+
+        private static bool DoorwayLightOwnsActivePassage(Light doorwayLight)
+        {
+            CubeRoomWallBoundary boundary = doorwayLight.GetComponentInParent<CubeRoomWallBoundary>();
+            if (boundary != null) return boundary.HasDoorway && boundary.OwnsBoundary;
+            CubeRoomCeilingBoundary ceiling = doorwayLight.GetComponentInParent<CubeRoomCeilingBoundary>();
+            return ceiling != null && ceiling.HasPassage && ceiling.OwnsBoundary;
         }
 
         private void ApplyEmission(Renderer renderer, float intensity)

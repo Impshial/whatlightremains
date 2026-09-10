@@ -243,13 +243,45 @@ Transform:
   m_GameObject: {fileID: 2183553105007092304}
   serializedVersion: 2
   m_LocalRotation: {x: -0.05233596, y: 0, z: 0, w: 0.9986295}
-  m_LocalPosition: {x: 0, y: 1.65, z: 0}
+  m_LocalPosition: {x: 0, y: 0.72, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 6751892188883545015}
   - {fileID: 8024652489446450470}
   - {fileID: 3870157376512092336}
+  m_Father: {fileID: 5698927531442966569}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &4765555433482799883
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 5698927531442966569}
+  m_Layer: 0
+  m_Name: Yaw Pivot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &5698927531442966569
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4765555433482799883}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 3102434740956340130}
   m_Father: {fileID: 6876591029664905756}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &5294245128792901996
@@ -613,9 +645,13 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 6876591029664905756}
-  - component: {fileID: 1726126094837403674}
+  - component: {fileID: 887379715407878725}
+  - component: {fileID: 673047805823260768}
   - component: {fileID: 1976384643049066167}
   - component: {fileID: 4093413171902578324}
+  - component: {fileID: 6841706925430377882}
+  - component: {fileID: 1429779551892615791}
+  - component: {fileID: 1339242895757888196}
   - component: {fileID: 8757354384928270682}
   - component: {fileID: 7499881474968383807}
   - component: {fileID: 512684838424836928}
@@ -639,11 +675,11 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 3102434740956340130}
+  - {fileID: 5698927531442966569}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!143 &1726126094837403674
-CharacterController:
+--- !u!136 &887379715407878725
+CapsuleCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -657,16 +693,41 @@ CharacterController:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
+  m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Height: 1.8
+  serializedVersion: 2
   m_Radius: 0.3
-  m_SlopeLimit: 50
-  m_StepOffset: 0.3
-  m_SkinWidth: 0.03
-  m_MinMoveDistance: 0.001
-  m_Center: {x: 0, y: 0.9, z: 0}
+  m_Height: 1.8
+  m_Direction: 1
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!54 &673047805823260768
+Rigidbody:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8191574034244779842}
+  serializedVersion: 5
+  m_Mass: 1
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
+  m_CenterOfMass: {x: 0, y: 0, z: 0}
+  m_InertiaTensor: {x: 1, y: 1, z: 1}
+  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ImplicitCom: 1
+  m_ImplicitTensor: 1
+  m_UseGravity: 0
+  m_IsKinematic: 1
+  m_Interpolate: 1
+  m_Constraints: 0
+  m_CollisionDetection: 3
 --- !u!114 &1976384643049066167
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -680,6 +741,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: WhatLightRemains.Runtime::WhatLightRemains.Runtime.FirstPersonInput
   inputActions: {fileID: -944628639613478452, guid: fc746019d8563dc46ba4e6c82fcdde65, type: 3}
+  mouseWheelStepSize: 120
 --- !u!114 &4093413171902578324
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -693,6 +755,62 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: WhatLightRemains.Runtime::WhatLightRemains.Runtime.PlayerRoomTracker
   startingRoom: {fileID: 0}
+--- !u!114 &6841706925430377882
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8191574034244779842}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4f7a01b8c6e241db999a43ff3af75e87, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: WhatLightRemains.Runtime::WhatLightRemains.Runtime.KinematicCapsuleMover
+  capsule: {fileID: 887379715407878725}
+  body: {fileID: 673047805823260768}
+  skinWidth: 0.03
+  stepOffset: 0.3
+  maximumGroundAngle: 55
+  maximumSlideIterations: 4
+  collisionMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+--- !u!114 &1429779551892615791
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8191574034244779842}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 945e9a7338c9483897445e33942c368d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: WhatLightRemains.Runtime::WhatLightRemains.Runtime.PlayerGravityAlignment
+  roomTracker: {fileID: 4093413171902578324}
+  mover: {fileID: 6841706925430377882}
+  alignmentDuration: 0.35
+--- !u!114 &1339242895757888196
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8191574034244779842}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0a00bbd26951409c9278399a6bcc2fc8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: WhatLightRemains.Runtime::WhatLightRemains.Runtime.PlayerLadderTraversal
+  mover: {fileID: 6841706925430377882}
+  legacyController: {fileID: 0}
+  roomTracker: {fileID: 4093413171902578324}
+  facingTransform: {fileID: 5698927531442966569}
+  climbSpeed: 2.5
+  detachCooldown: 0.25
+  minimumFacingDot: 0.25
+  endpointTolerance: 0.04
 --- !u!114 &8757354384928270682
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -705,12 +823,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c976e153c81710546b7f98494d7f3327, type: 3}
   m_Name: 
   m_EditorClassIdentifier: WhatLightRemains.Runtime::WhatLightRemains.Runtime.FirstPersonMotor
-  characterController: {fileID: 1726126094837403674}
+  characterController: {fileID: 0}
+  capsuleMover: {fileID: 6841706925430377882}
   input: {fileID: 1976384643049066167}
   roomTracker: {fileID: 4093413171902578324}
+  gravityAlignment: {fileID: 1429779551892615791}
+  ladderTraversal: {fileID: 1339242895757888196}
+  movementReference: {fileID: 5698927531442966569}
   controllerHeight: 1.8
   controllerRadius: 0.3
   walkSpeed: 3
+  sprintSpeed: 6
   jumpHeight: 1
   groundedSnapSpeed: 2
   terminalFallSpeed: 50
@@ -732,7 +855,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: WhatLightRemains.Runtime::WhatLightRemains.Runtime.PlayerLook
   input: {fileID: 1976384643049066167}
-  yawRoot: {fileID: 6876591029664905756}
+  yawRoot: {fileID: 5698927531442966569}
   pitchCamera: {fileID: 3102434740956340130}
   mainCamera: {fileID: 3264905031190513779}
   mouseSensitivity: 0.08

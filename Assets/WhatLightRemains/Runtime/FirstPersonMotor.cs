@@ -3,13 +3,16 @@ using UnityEngine;
 namespace WhatLightRemains.Runtime
 {
     [DisallowMultipleComponent]
-    [RequireComponent(typeof(CharacterController))]
     public sealed class FirstPersonMotor : MonoBehaviour
     {
         [Header("References")]
         [SerializeField] private CharacterController characterController;
+        [SerializeField] private KinematicCapsuleMover capsuleMover;
         [SerializeField] private FirstPersonInput input;
         [SerializeField] private PlayerRoomTracker roomTracker;
+        [SerializeField] private PlayerGravityAlignment gravityAlignment;
+        [SerializeField] private PlayerLadderTraversal ladderTraversal;
+        [SerializeField] private Transform movementReference;
 
         [Header("Controller")]
         [SerializeField, Min(0.1f)] private float controllerHeight = 1.8f;
@@ -17,6 +20,7 @@ namespace WhatLightRemains.Runtime
 
         [Header("Movement")]
         [SerializeField, Min(0f)] private float walkSpeed = 3f;
+        [SerializeField, Min(0f)] private float sprintSpeed = 6f;
         [SerializeField, Min(0f)] private float jumpHeight = 1f;
         [SerializeField, Min(0f)] private float groundedSnapSpeed = 2f;
         [SerializeField, Min(0f)] private float terminalFallSpeed = 50f;
@@ -33,6 +37,12 @@ namespace WhatLightRemains.Runtime
         {
             get => walkSpeed;
             set => walkSpeed = Mathf.Max(0f, value);
+        }
+
+        public float SprintSpeed
+        {
+            get => sprintSpeed;
+            set => sprintSpeed = Mathf.Max(0f, value);
         }
 
         public float JumpHeight
@@ -64,6 +74,7 @@ namespace WhatLightRemains.Runtime
 
         public bool IsGrounded { get; private set; }
         public float VerticalSpeed => verticalSpeed;
+        public Transform MovementReference => movementReference != null ? movementReference : transform;
 
         public void Configure(
             CharacterController controller,
@@ -79,6 +90,43 @@ namespace WhatLightRemains.Runtime
             input = inputSource;
             roomTracker = tracker;
             ApplyControllerDimensions();
+
+            if (isActiveAndEnabled && roomTracker != null)
+            {
+                roomTracker.CurrentRoomChanged += HandleRoomChanged;
+            }
+        }
+
+        public void Configure(
+            KinematicCapsuleMover mover,
+            FirstPersonInput inputSource,
+            PlayerRoomTracker tracker,
+            PlayerGravityAlignment alignment = null,
+            PlayerLadderTraversal ladder = null,
+            Transform viewMovementReference = null)
+        {
+            if (isActiveAndEnabled && roomTracker != null)
+            {
+                roomTracker.CurrentRoomChanged -= HandleRoomChanged;
+            }
+
+            capsuleMover = mover;
+            input = inputSource;
+            roomTracker = tracker;
+            gravityAlignment = alignment;
+            ladderTraversal = ladder;
+            movementReference = viewMovementReference;
+            ApplyControllerDimensions();
+
+            if (ladderTraversal != null)
+            {
+                ladderTraversal.Configure(capsuleMover, characterController, roomTracker, MovementReference);
+            }
+
+            if (gravityAlignment != null)
+            {
+                gravityAlignment.Configure(roomTracker, capsuleMover);
+            }
 
             if (isActiveAndEnabled && roomTracker != null)
             {
@@ -116,7 +164,10 @@ namespace WhatLightRemains.Runtime
             Vector3 planarForward = Vector3.ProjectOnPlane(viewForward, normalizedUp);
             if (planarForward.sqrMagnitude <= 0.000001f)
             {
-                planarForward = Vector3.ProjectOnPlane(Vector3.forward, normalizedUp);
+                Vector3 fallbackAxis = Mathf.Abs(Vector3.Dot(Vector3.forward, normalizedUp)) < 0.9f
+                    ? Vector3.forward
+                    : Vector3.right;
+                planarForward = Vector3.ProjectOnPlane(fallbackAxis, normalizedUp);
             }
 
             planarForward.Normalize();
@@ -154,12 +205,12 @@ namespace WhatLightRemains.Runtime
 
         private void Update()
         {
-            if (characterController == null || input == null || !characterController.enabled)
+            if (!HasEnabledMover() || input == null)
             {
                 return;
             }
 
-            Tick(input.Move, input.JumpPressedThisFrame, Time.deltaTime);
+            Tick(input.Move, input.JumpPressedThisFrame, input.SprintHeld, Time.deltaTime);
         }
 
         /// <summary>
@@ -168,8 +219,31 @@ namespace WhatLightRemains.Runtime
         /// </summary>
         public void Tick(Vector2 movementInput, bool jumpPressed, float deltaTime)
         {
-            if (characterController == null || !characterController.enabled || deltaTime <= 0f)
+            Tick(movementInput, jumpPressed, false, deltaTime);
+        }
+
+        /// <summary>
+        /// Advances the motor using an explicit sprint state. Rotation modifiers never
+        /// suppress sprint; input arbitration remains the responsibility of the caller.
+        /// </summary>
+        public void Tick(Vector2 movementInput, bool jumpPressed, bool sprintHeld, float deltaTime)
+        {
+            if (!HasEnabledMover() || deltaTime <= 0f)
             {
+                return;
+            }
+
+            if (gravityAlignment != null && gravityAlignment.IsAligning)
+            {
+                verticalSpeed = 0f;
+                IsGrounded = false;
+                return;
+            }
+
+            if (ladderTraversal != null && ladderTraversal.Tick(movementInput.y, jumpPressed, deltaTime))
+            {
+                verticalSpeed = 0f;
+                IsGrounded = false;
                 return;
             }
 
@@ -191,16 +265,31 @@ namespace WhatLightRemains.Runtime
             }
 
             verticalSpeed = Mathf.Max(verticalSpeed - gravityMagnitude * deltaTime, -terminalFallSpeed);
-            Vector3 planarVelocity = ComputePlanarVelocity(movementInput, transform.forward, roomUp, walkSpeed);
-            CollisionFlags collisionFlags = characterController.Move(
-                (planarVelocity + roomUp * verticalSpeed) * deltaTime);
+            float movementSpeed = sprintHeld ? sprintSpeed : walkSpeed;
+            Vector3 planarVelocity = ComputePlanarVelocity(movementInput, MovementReference.forward, roomUp, movementSpeed);
+            Vector3 displacement = (planarVelocity + roomUp * verticalSpeed) * deltaTime;
 
-            if ((collisionFlags & CollisionFlags.Above) != 0 && verticalSpeed > 0f)
+            bool hitCeiling;
+            bool hitGround;
+            if (capsuleMover != null && capsuleMover.isActiveAndEnabled)
+            {
+                CapsuleMoveResult result = capsuleMover.Move(displacement, roomUp);
+                hitCeiling = result.HitCeiling;
+                hitGround = result.IsGrounded;
+            }
+            else
+            {
+                CollisionFlags collisionFlags = characterController.Move(displacement);
+                hitCeiling = (collisionFlags & CollisionFlags.Above) != 0;
+                hitGround = (collisionFlags & CollisionFlags.Below) != 0;
+            }
+
+            if (hitCeiling && verticalSpeed > 0f)
             {
                 verticalSpeed = 0f;
             }
 
-            if ((collisionFlags & CollisionFlags.Below) != 0)
+            if (hitGround)
             {
                 IsGrounded = true;
                 if (verticalSpeed < 0f)
@@ -212,6 +301,16 @@ namespace WhatLightRemains.Runtime
 
         private bool ProbeGround(Vector3 up)
         {
+            if (capsuleMover != null && capsuleMover.isActiveAndEnabled)
+            {
+                return capsuleMover.ProbeGround(up, groundProbeDistance, maximumGroundAngle, out _);
+            }
+
+            if (characterController == null || !characterController.enabled)
+            {
+                return false;
+            }
+
             if (characterController.isGrounded)
             {
                 return true;
@@ -256,22 +355,34 @@ namespace WhatLightRemains.Runtime
         private void ResolveReferences()
         {
             characterController ??= GetComponent<CharacterController>();
+            capsuleMover ??= GetComponent<KinematicCapsuleMover>();
             input ??= GetComponent<FirstPersonInput>();
             roomTracker ??= GetComponent<PlayerRoomTracker>();
+            gravityAlignment ??= GetComponent<PlayerGravityAlignment>();
+            ladderTraversal ??= GetComponent<PlayerLadderTraversal>();
         }
 
         private void ApplyControllerDimensions()
         {
-            if (characterController == null)
-            {
-                return;
-            }
-
             controllerHeight = Mathf.Max(0.1f, controllerHeight);
             controllerRadius = Mathf.Clamp(controllerRadius, 0.05f, controllerHeight * 0.5f);
-            characterController.height = controllerHeight;
-            characterController.radius = controllerRadius;
-            characterController.center = Vector3.up * (controllerHeight * 0.5f);
+            if (capsuleMover != null)
+            {
+                capsuleMover.SetDimensions(controllerHeight, controllerRadius, true);
+            }
+
+            if (characterController != null)
+            {
+                characterController.height = controllerHeight;
+                characterController.radius = controllerRadius;
+                characterController.center = Vector3.up * (controllerHeight * 0.5f);
+            }
+        }
+
+        private bool HasEnabledMover()
+        {
+            return (capsuleMover != null && capsuleMover.isActiveAndEnabled)
+                || (characterController != null && characterController.enabled);
         }
 
         private void HandleRoomChanged(CubeRoom previousRoom, CubeRoom currentRoom)
@@ -283,6 +394,7 @@ namespace WhatLightRemains.Runtime
         private void OnValidate()
         {
             walkSpeed = Mathf.Max(0f, walkSpeed);
+            sprintSpeed = Mathf.Max(0f, sprintSpeed);
             jumpHeight = Mathf.Max(0f, jumpHeight);
             controllerHeight = Mathf.Max(0.1f, controllerHeight);
             controllerRadius = Mathf.Clamp(controllerRadius, 0.05f, controllerHeight * 0.5f);

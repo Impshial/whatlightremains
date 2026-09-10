@@ -11,7 +11,11 @@
                 { "name": "ReleaseCursor", "type": "Button", "id": "b75f8437-030b-4f69-a654-0ef177ac9fb1", "expectedControlType": "Button", "processors": "", "interactions": "", "initialStateCheck": false },
                 { "name": "CaptureCursor", "type": "Button", "id": "f3525105-cb20-4cd8-bf43-ef95eb8ee037", "expectedControlType": "Button", "processors": "", "interactions": "", "initialStateCheck": false },
                 { "name": "ToggleCreate", "type": "Button", "id": "fe1131a6-5d0b-4c84-b97b-110f5f2a77ac", "expectedControlType": "Button", "processors": "", "interactions": "", "initialStateCheck": false },
-                { "name": "PlaceRoom", "type": "Button", "id": "48ba252b-3562-44d1-936c-88f433ab2d51", "expectedControlType": "Button", "processors": "", "interactions": "", "initialStateCheck": false }
+                { "name": "PlaceRoom", "type": "Button", "id": "48ba252b-3562-44d1-936c-88f433ab2d51", "expectedControlType": "Button", "processors": "", "interactions": "", "initialStateCheck": false },
+                { "name": "Sprint", "type": "Button", "id": "d1f3b5dc-d57c-48d6-a369-6545085ec79e", "expectedControlType": "Button", "processors": "", "interactions": "", "initialStateCheck": true },
+                { "name": "RotateModifier", "type": "Button", "id": "23d2106b-77e8-4f37-8a68-4c8e163cfed4", "expectedControlType": "Button", "processors": "", "interactions": "", "initialStateCheck": true },
+                { "name": "AlternateRotationAxis", "type": "Button", "id": "05e33d90-555f-486f-aa8a-87a8f4818763", "expectedControlType": "Button", "processors": "", "interactions": "", "initialStateCheck": true },
+                { "name": "RotationScroll", "type": "Value", "id": "348de50f-ebd6-43cc-a07c-349b7b54bfa9", "expectedControlType": "Vector2", "processors": "", "interactions": "", "initialStateCheck": true }
             ],
             "bindings": [
                 { "name": "WASD", "id": "547d0149-dfbb-4be4-b147-475b0ceaa247", "path": "2DVector", "interactions": "", "processors": "", "groups": "", "action": "Move", "isComposite": true, "isPartOfComposite": false },
@@ -24,7 +28,13 @@
                 { "name": "", "id": "27d14848-d21b-4275-9b98-05ca76289f74", "path": "<Keyboard>/escape", "interactions": "", "processors": "", "groups": "", "action": "ReleaseCursor", "isComposite": false, "isPartOfComposite": false },
                 { "name": "", "id": "7eb4af7e-76e6-4b7a-bd29-b6fa98d1b3be", "path": "<Mouse>/leftButton", "interactions": "", "processors": "", "groups": "", "action": "CaptureCursor", "isComposite": false, "isPartOfComposite": false },
                 { "name": "", "id": "6328840f-0870-4f0f-9024-1e0a246302a4", "path": "<Keyboard>/c", "interactions": "Press", "processors": "", "groups": "", "action": "ToggleCreate", "isComposite": false, "isPartOfComposite": false },
-                { "name": "", "id": "0d660884-6f90-4f75-8d97-dd5df83e3faa", "path": "<Mouse>/leftButton", "interactions": "Press", "processors": "", "groups": "", "action": "PlaceRoom", "isComposite": false, "isPartOfComposite": false }
+                { "name": "", "id": "0d660884-6f90-4f75-8d97-dd5df83e3faa", "path": "<Mouse>/leftButton", "interactions": "Press", "processors": "", "groups": "", "action": "PlaceRoom", "isComposite": false, "isPartOfComposite": false },
+                { "name": "", "id": "0ce9cf3e-ffb1-42e1-8960-fd83f247f687", "path": "<Keyboard>/leftShift", "interactions": "", "processors": "", "groups": "", "action": "Sprint", "isComposite": false, "isPartOfComposite": false },
+                { "name": "", "id": "4d07b074-e94d-42c6-b4d1-65f6d6b9e6e5", "path": "<Keyboard>/leftCtrl", "interactions": "", "processors": "", "groups": "", "action": "RotateModifier", "isComposite": false, "isPartOfComposite": false },
+                { "name": "", "id": "67978e59-3b69-4139-a50f-f018bb7e6130", "path": "<Keyboard>/rightCtrl", "interactions": "", "processors": "", "groups": "", "action": "RotateModifier", "isComposite": false, "isPartOfComposite": false },
+                { "name": "", "id": "60b07283-3630-407e-abee-0b6e57b8f4a1", "path": "<Keyboard>/leftAlt", "interactions": "", "processors": "", "groups": "", "action": "AlternateRotationAxis", "isComposite": false, "isPartOfComposite": false },
+                { "name": "", "id": "9707ed9c-0e82-48e5-9baa-29e43097d73b", "path": "<Keyboard>/rightAlt", "interactions": "", "processors": "", "groups": "", "action": "AlternateRotationAxis", "isComposite": false, "isPartOfComposite": false },
+                { "name": "", "id": "34b638e9-cfc2-4ba5-87a4-084f71cd3f84", "path": "<Mouse>/scroll", "interactions": "", "processors": "", "groups": "", "action": "RotationScroll", "isComposite": false, "isPartOfComposite": false }
             ]
         }
     ],

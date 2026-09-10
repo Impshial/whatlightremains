@@ -65,6 +65,7 @@ namespace WhatLightRemains.Tests
                 AssertConfiguredStripRenderers(instance, lightingRigs[0]);
                 AssertConfiguredGlassRenderers(instance);
                 AssertConfiguredWallBoundaryColliders(instance, rooms[0]);
+                AssertConfiguredCeilingBoundary(instance, rooms[0]);
 
                 Assert.That(instance.GetComponentsInChildren<Camera>(true), Is.Empty, "The cube prefab must not own a camera.");
                 Assert.That(instance.GetComponentsInChildren<Canvas>(true), Is.Empty, "The cube prefab must not own HUD UI.");
@@ -89,6 +90,9 @@ namespace WhatLightRemains.Tests
             Assert.That(player.GetComponentInChildren<FirstPersonInput>(true), Is.Not.Null);
             Assert.That(player.GetComponentInChildren<PlayerRoomTracker>(true), Is.Not.Null);
             Assert.That(player.GetComponentInChildren<RoomCreationController>(true), Is.Not.Null);
+            Assert.That(player.GetComponent<KinematicCapsuleMover>(), Is.Not.Null);
+            Assert.That(player.GetComponent<PlayerGravityAlignment>(), Is.Not.Null);
+            Assert.That(player.GetComponent<PlayerLadderTraversal>(), Is.Not.Null);
             Assert.That(player.GetComponentInChildren<Camera>(true), Is.Not.Null);
             Assert.That(player.GetComponentInChildren<CubeRoom>(true), Is.Null);
             Assert.That(
@@ -96,13 +100,32 @@ namespace WhatLightRemains.Tests
                 Is.True,
                 "Player bodies receiving room gravity must not also use global Rigidbody gravity.");
             FirstPersonMotor motor = player.GetComponentInChildren<FirstPersonMotor>(true);
-            CharacterController controller = player.GetComponent<CharacterController>();
+            CapsuleCollider capsule = player.GetComponent<CapsuleCollider>();
+            Rigidbody body = player.GetComponent<Rigidbody>();
             Assert.That(motor.ControllerHeight, Is.EqualTo(1.8f).Within(0.001f));
             Assert.That(motor.ControllerRadius, Is.EqualTo(0.3f).Within(0.001f));
-            Assert.That(controller.height, Is.EqualTo(1.8f).Within(0.001f));
-            Assert.That(controller.radius, Is.EqualTo(0.3f).Within(0.001f));
-            Transform pitchPivot = player.transform.Find("Pitch Pivot");
-            Assert.That(pitchPivot.localPosition.y, Is.EqualTo(1.65f).Within(0.001f));
+            Assert.That(motor.WalkSpeed, Is.EqualTo(3f).Within(0.001f));
+            Assert.That(motor.SprintSpeed, Is.EqualTo(6f).Within(0.001f));
+            Assert.That(player.GetComponent<CharacterController>(), Is.Null,
+                "The generated rig must use the local-Y capsule mover rather than Unity's world-up CharacterController.");
+            Assert.That(capsule, Is.Not.Null);
+            Assert.That(capsule.direction, Is.EqualTo(1));
+            Assert.That(capsule.height, Is.EqualTo(1.8f).Within(0.001f));
+            Assert.That(capsule.radius, Is.EqualTo(0.3f).Within(0.001f));
+            Assert.That(capsule.center, Is.EqualTo(Vector3.zero));
+            Assert.That(body, Is.Not.Null);
+            Assert.That(body.isKinematic, Is.True);
+            Assert.That(body.useGravity, Is.False);
+            Assert.That(player.GetComponent<PlayerGravityAlignment>().AlignmentDuration, Is.EqualTo(0.35f).Within(0.001f));
+            Assert.That(player.GetComponent<PlayerLadderTraversal>().ClimbSpeed, Is.EqualTo(2.5f).Within(0.001f));
+            Assert.That(player.GetComponent<PlayerLadderTraversal>().DetachCooldown, Is.EqualTo(0.25f).Within(0.001f));
+
+            Transform yawPivot = player.transform.Find("Yaw Pivot");
+            Assert.That(yawPivot, Is.Not.Null, "Yaw must remain separate from the arbitrary-gravity body root.");
+            Transform pitchPivot = yawPivot.Find("Pitch Pivot");
+            Assert.That(pitchPivot, Is.Not.Null);
+            Assert.That(pitchPivot.localPosition.y, Is.EqualTo(0.72f).Within(0.001f),
+                "With the capsule center spawned at 0.93 m, this keeps the eye at 1.65 m above the floor.");
             Assert.That(
                 Quaternion.Angle(pitchPivot.localRotation, Quaternion.Euler(-6f, 0f, 0f)),
                 Is.LessThan(0.01f),
@@ -121,6 +144,9 @@ namespace WhatLightRemains.Tests
             Assert.That(creationPrompt.CurrentText, Is.EqualTo(RoomCreationPromptView.NormalText));
             Assert.That(creationPrompt.InstructionLabel.rectTransform.anchorMin, Is.EqualTo(Vector2.zero));
             Assert.That(creationPrompt.InstructionLabel.rectTransform.anchorMax, Is.EqualTo(Vector2.zero));
+            Assert.That(creationPrompt.RotationLabel, Is.Not.Null);
+            Assert.That(creationPrompt.RotationLabel.gameObject.activeSelf, Is.False);
+            Assert.That(creationPrompt.CurrentRotationText, Is.EqualTo(RoomCreationPromptView.RotationIdleText));
             Assert.That(hotbar.GetComponentsInChildren<Slider>(true), Has.Length.EqualTo(1));
             Assert.That(hotbar.transform.localScale, Is.EqualTo(Vector3.one));
             Assert.That(hotbar.GetComponentInChildren<Canvas>(true).renderMode, Is.EqualTo(RenderMode.ScreenSpaceOverlay));
@@ -144,6 +170,12 @@ namespace WhatLightRemains.Tests
             Assert.That(actions.FindAction("Player/CaptureCursor", true).bindings.Select(binding => binding.path), Does.Contain("<Mouse>/leftButton"));
             Assert.That(actions.FindAction("Player/ToggleCreate", true).bindings.Select(binding => binding.path), Does.Contain("<Keyboard>/c"));
             Assert.That(actions.FindAction("Player/PlaceRoom", true).bindings.Select(binding => binding.path), Does.Contain("<Mouse>/leftButton"));
+            Assert.That(actions.FindAction("Player/Sprint", true).bindings.Select(binding => binding.path), Does.Contain("<Keyboard>/leftShift"));
+            Assert.That(actions.FindAction("Player/RotateModifier", true).bindings.Select(binding => binding.path),
+                Is.SupersetOf(new[] { "<Keyboard>/leftCtrl", "<Keyboard>/rightCtrl" }));
+            Assert.That(actions.FindAction("Player/AlternateRotationAxis", true).bindings.Select(binding => binding.path),
+                Is.SupersetOf(new[] { "<Keyboard>/leftAlt", "<Keyboard>/rightAlt" }));
+            Assert.That(actions.FindAction("Player/RotationScroll", true).bindings.Select(binding => binding.path), Does.Contain("<Mouse>/scroll"));
 
             Material preview = LoadRequiredAsset<Material>(RoomPreviewMaterialPath);
             Assert.That(preview.shader.name, Is.EqualTo("Universal Render Pipeline/Unlit"));
@@ -376,9 +408,16 @@ namespace WhatLightRemains.Tests
                     Is.SameAs(cluster.PrimaryRoom),
                     "The player must serialize an explicit reference to the authored primary room.");
                 Assert.That(
-                    Quaternion.Angle(players[0].transform.rotation, Quaternion.Euler(0f, 45f, 0f)),
+                    Quaternion.Angle(players[0].transform.rotation, Quaternion.identity),
                     Is.LessThan(0.01f),
-                    "The foundation start should frame more than one illuminated corner.");
+                    "The arbitrary-gravity body root must begin aligned to the starting room.");
+                Transform sceneYaw = players[0].transform.Find("Yaw Pivot");
+                Assert.That(sceneYaw, Is.Not.Null);
+                Assert.That(
+                    Quaternion.Angle(sceneYaw.localRotation, Quaternion.Euler(0f, 45f, 0f)),
+                    Is.LessThan(0.01f),
+                    "The independent yaw pivot should frame more than one illuminated corner at startup.");
+                Assert.That(players[0].transform.position.y, Is.EqualTo(0.93f).Within(0.001f));
                 Assert.That(
                     FindInScene<Light>(scene).Any(light => light.type == LightType.Directional),
                     Is.False,
@@ -504,8 +543,8 @@ namespace WhatLightRemains.Tests
             Assert.That(strips, Is.Not.Null, "CubeRoomLighting must serialize its strip renderers.");
             Assert.That(
                 strips.arraySize,
-                Is.EqualTo(8),
-                "The room rig must contain exactly four vertical and four ceiling-perimeter strip renderers.");
+                Is.EqualTo(16),
+                "The rig contains eight normal strips plus two inactive replacement segments for each ceiling-edge opening.");
 
             Dictionary<string, Vector3> expectedPositions = new Dictionary<string, Vector3>
             {
@@ -520,21 +559,38 @@ namespace WhatLightRemains.Tests
             };
 
             HashSet<Renderer> uniqueStrips = new HashSet<Renderer>();
+            int primaryStripCount = 0;
+            int passageSegmentCount = 0;
             for (int index = 0; index < strips.arraySize; index++)
             {
                 Renderer strip = strips.GetArrayElementAtIndex(index).objectReferenceValue as Renderer;
                 Assert.That(strip, Is.Not.Null, $"Strip renderer reference {index} is missing.");
                 Assert.That(strip.transform.IsChildOf(roomInstance.transform), Is.True, "Every strip must belong to its cube instance.");
-                Assert.That(uniqueStrips.Add(strip), Is.True, "Each of the eight strip references must be unique.");
+                Assert.That(uniqueStrips.Add(strip), Is.True, "Every normal or replacement strip reference must be unique.");
+                Assert.That(strip.sharedMaterial.shader.name, Is.EqualTo("Universal Render Pipeline/Unlit"));
+                if (strip.name.StartsWith("Strip Ceiling Passage", StringComparison.Ordinal))
+                {
+                    passageSegmentCount++;
+                    AssertStripDimensions(strip.transform.localScale, 3f, 0.07f, strip.name);
+                    Assert.That(strip.gameObject.activeInHierarchy, Is.False,
+                        "Replacement segments must remain inactive while the ceiling is closed.");
+                    continue;
+                }
+
+                primaryStripCount++;
                 Assert.That(expectedPositions.ContainsKey(strip.name), Is.True, $"Unexpected strip '{strip.name}'.");
                 Assert.That(Vector3.Distance(strip.transform.localPosition, expectedPositions[strip.name]), Is.LessThan(0.001f));
                 AssertStripDimensions(strip.transform.localScale, 8f, 0.07f, strip.name);
-                Assert.That(strip.sharedMaterial.shader.name, Is.EqualTo("Universal Render Pipeline/Unlit"));
             }
+            Assert.That(primaryStripCount, Is.EqualTo(8));
+            Assert.That(passageSegmentCount, Is.EqualTo(8));
 
             Transform housingsRoot = roomInstance.transform.Find("Lighting/Strip Housings");
             Assert.That(housingsRoot, Is.Not.Null, "The visible strips require contrasting housings so they remain readable against glass.");
-            Renderer[] housings = housingsRoot.GetComponentsInChildren<Renderer>(true);
+            Transform lightingRoot = roomInstance.transform.Find("Lighting");
+            Renderer[] housings = lightingRoot.GetComponentsInChildren<Renderer>(true)
+                .Where(renderer => renderer.name.StartsWith("Housing ", StringComparison.Ordinal))
+                .ToArray();
             Assert.That(housings, Has.Length.EqualTo(8));
             Dictionary<string, Vector3> expectedHousingPositions = new Dictionary<string, Vector3>
             {
@@ -559,17 +615,35 @@ namespace WhatLightRemains.Tests
 
             SerializedProperty supportingLights = serializedLighting.FindProperty("supportingLights");
             Assert.That(supportingLights, Is.Not.Null);
-            Assert.That(supportingLights.arraySize, Is.EqualTo(28), "Distributed emitters must follow the full length of all eight strips.");
+            Assert.That(supportingLights.arraySize, Is.EqualTo(36),
+                "The 28 normal emitters plus eight inactive ceiling-passage emitters must be independently configurable.");
             SerializedProperty doorwayFrames = serializedLighting.FindProperty("doorwayFrameRenderers");
             Assert.That(doorwayFrames, Is.Not.Null);
-            Assert.That(doorwayFrames.arraySize, Is.EqualTo(12), "Every doorway variant requires three dimmer emissive frame pieces.");
+            Assert.That(doorwayFrames.arraySize, Is.EqualTo(24),
+                "Four side doorways and four ceiling-edge variants each require a three-piece emissive frame.");
+            SerializedProperty doorwayFrameLights = serializedLighting.FindProperty("doorwayFrameLights");
+            Assert.That(doorwayFrameLights, Is.Not.Null);
+            Assert.That(doorwayFrameLights.arraySize, Is.EqualTo(48),
+                "Each of the eight possible doorway frames uses six embedded, bidirectional emitters.");
             int floorEmitterCount = 0;
             int ceilingEmitterCount = 0;
+            int passageEmitterCount = 0;
             for (int index = 0; index < supportingLights.arraySize; index++)
             {
                 Light supportingLight = supportingLights.GetArrayElementAtIndex(index).objectReferenceValue as Light;
                 Assert.That(supportingLight, Is.Not.Null, $"Supporting light reference {index} is missing.");
                 Assert.That(supportingLight.transform.IsChildOf(roomInstance.transform), Is.True);
+                if (supportingLight.name.StartsWith("Strip Passage Emitter", StringComparison.Ordinal))
+                {
+                    passageEmitterCount++;
+                    Assert.That(supportingLight.gameObject.activeInHierarchy, Is.False,
+                        "Passage emitters activate only with their matching ceiling-edge variant.");
+                    Assert.That(supportingLight.type, Is.EqualTo(LightType.Spot));
+                    Assert.That(supportingLight.intensity, Is.EqualTo(0.85f).Within(0.001f));
+                    Assert.That(supportingLight.shadows, Is.EqualTo(LightShadows.None));
+                    continue;
+                }
+
                 Vector3 position = supportingLight.transform.localPosition;
                 bool followsVerticalStrip = Mathf.Abs(Mathf.Abs(position.x) - 3.87f) < 0.001f
                     && Mathf.Abs(Mathf.Abs(position.z) - 3.87f) < 0.001f;
@@ -615,16 +689,31 @@ namespace WhatLightRemains.Tests
 
             Assert.That(floorEmitterCount, Is.EqualTo(4), "Every vertical strip must illuminate its floor intersection.");
             Assert.That(ceilingEmitterCount, Is.EqualTo(12), "Three distributed emitters must follow each ceiling strip.");
+            Assert.That(passageEmitterCount, Is.EqualTo(8), "Each split ceiling strip has one embedded emitter.");
 
             Assert.That(lighting.StripWidth, Is.EqualTo(0.07f).Within(0.001f));
             Assert.That(lighting.EmissionIntensity, Is.EqualTo(6f).Within(0.001f));
-            Assert.That(lighting.DoorwayFrameEmissionIntensity, Is.EqualTo(1.35f).Within(0.001f));
+            Assert.That(lighting.DoorwayFramePowerRatio, Is.EqualTo(0.5f).Within(0.001f));
+            Assert.That(lighting.DoorwayFrameEmissionIntensity, Is.EqualTo(3f).Within(0.001f));
             Assert.That(lighting.SupportingLightIntensity, Is.EqualTo(0.85f).Within(0.001f));
             Assert.That(lighting.SupportingLightRange, Is.EqualTo(12f).Within(0.001f));
             Assert.That(lighting.SupportingLightSpotAngle, Is.EqualTo(170f).Within(0.001f));
             Assert.That(lighting.SupportingLightInnerSpotAngle, Is.EqualTo(160f).Within(0.001f));
             Assert.That(lighting.SupportingLightShadows, Is.EqualTo(LightShadows.None));
             Assert.That(lighting.SupportingLightShadowResolution, Is.EqualTo(RoomLightShadowResolutionTier.Low));
+
+            for (int index = 0; index < doorwayFrameLights.arraySize; index++)
+            {
+                Light doorwayLight = doorwayFrameLights.GetArrayElementAtIndex(index).objectReferenceValue as Light;
+                Assert.That(doorwayLight, Is.Not.Null, $"Doorway light reference {index} is missing.");
+                Assert.That(doorwayLight.transform.IsChildOf(roomInstance.transform), Is.True);
+                Assert.That(doorwayLight.type, Is.EqualTo(LightType.Spot));
+                Assert.That(doorwayLight.intensity, Is.EqualTo(0.425f).Within(0.001f));
+                Assert.That(doorwayLight.range, Is.EqualTo(12f).Within(0.001f));
+                Assert.That(doorwayLight.shadows, Is.EqualTo(LightShadows.None));
+                Assert.That(doorwayLight.enabled, Is.False,
+                    "Emitters for closed doorway variants must remain off until that boundary opens.");
+            }
         }
 
         private static void AssertConfiguredGlassRenderers(GameObject roomInstance)
@@ -633,18 +722,22 @@ namespace WhatLightRemains.Tests
             Assert.That(glassRoot, Is.Not.Null, "The room must keep its glass panes under Geometry/Glass.");
 
             Material glassMaterial = LoadRequiredAsset<Material>(GlassMaterialPath);
-            Material frameMaterial = LoadRequiredAsset<Material>(StripMaterialPath);
             Material baseTrimMaterial = LoadRequiredAsset<Material>(BaseRailMaterialPath);
             Renderer[] allRenderers = glassRoot.GetComponentsInChildren<Renderer>(true);
             Renderer[] panes = allRenderers.Where(renderer => renderer.sharedMaterial == glassMaterial).ToArray();
-            Renderer[] frames = allRenderers.Where(renderer => renderer.sharedMaterial == frameMaterial).ToArray();
-            Renderer[] baseTrims = allRenderers.Where(renderer => renderer.sharedMaterial == baseTrimMaterial).ToArray();
+            Renderer[] frames = allRenderers.Where(renderer =>
+                renderer.name.StartsWith("Doorway Frame", StringComparison.Ordinal)).ToArray();
+            Renderer[] baseTrims = allRenderers.Where(renderer =>
+                renderer.name.IndexOf("Base Rail", StringComparison.Ordinal) >= 0
+                || renderer.name.IndexOf("Opening Edge Trim", StringComparison.Ordinal) >= 0).ToArray();
             Assert.That(
                 panes.Length,
-                Is.EqualTo(17),
-                "The room requires four closed panes, twelve doorway segments, and one glass ceiling.");
-            Assert.That(frames, Has.Length.EqualTo(12), "Each of the four walls requires a three-piece doorway frame.");
-            Assert.That(baseTrims, Has.Length.EqualTo(12), "Each wall requires one closed rail and two doorway-side rails at the glass/floor seam.");
+                Is.EqualTo(29),
+                "The room requires side-wall panes plus a closed ceiling and four complete ceiling-opening variants.");
+            Assert.That(frames, Has.Length.EqualTo(24),
+                "Side and ceiling-edge doorway variants each require a three-piece frame.");
+            Assert.That(baseTrims, Has.Length.EqualTo(20),
+                "Every side wall has closed/open seam trim and every ceiling-edge opening has two edge trims.");
 
             CubeRoom room = roomInstance.GetComponent<CubeRoom>();
             Renderer[] wallPanes = Enum
@@ -715,6 +808,92 @@ namespace WhatLightRemains.Tests
             }
 
             Assert.That(wallColliders, Has.Count.EqualTo(4));
+        }
+
+        private static void AssertConfiguredCeilingBoundary(GameObject roomInstance, CubeRoom room)
+        {
+            CubeRoomCeilingBoundary ceiling = room.CeilingBoundary;
+            Assert.That(ceiling, Is.Not.Null, "The room requires a configurable ceiling boundary.");
+            Assert.That(ceiling.IsConnected, Is.False);
+            Assert.That(ceiling.HasPassage, Is.False);
+            Assert.That(ceiling.OwnsBoundary, Is.True);
+            Assert.That(ceiling.ActivePassageRoot, Is.Null);
+            Assert.That(ceiling.ClosedRenderers.Count, Is.EqualTo(1));
+            Assert.That(ceiling.ClosedColliders.Count, Is.EqualTo(1));
+            Assert.That(ceiling.EdgeCrossingRoots.Count, Is.EqualTo(4));
+            Assert.That(ceiling.EdgeCrossingRoots.All(crossing => crossing != null && crossing.activeSelf), Is.True);
+            Assert.That(ceiling.ClosedRenderers.All(renderer => renderer != null && renderer.enabled), Is.True);
+            Assert.That(ceiling.ClosedColliders.All(collider => collider != null && collider.enabled && !collider.isTrigger), Is.True);
+
+            SerializedObject serializedCeiling = new SerializedObject(ceiling);
+            SerializedProperty variants = serializedCeiling.FindProperty("edgeVariants");
+            Assert.That(variants, Is.Not.Null);
+            Assert.That(variants.arraySize, Is.EqualTo(4),
+                "A traversable ceiling connection can meet any of the four ceiling edges.");
+            HashSet<RoomCeilingEdge> edges = new HashSet<RoomCeilingEdge>();
+            for (int index = 0; index < variants.arraySize; index++)
+            {
+                SerializedProperty variant = variants.GetArrayElementAtIndex(index);
+                RoomCeilingEdge edge = (RoomCeilingEdge)variant.FindPropertyRelative("edge").enumValueIndex;
+                GameObject passageRoot = variant.FindPropertyRelative("passageRoot").objectReferenceValue as GameObject;
+                SerializedProperty renderers = variant.FindPropertyRelative("renderers");
+                SerializedProperty colliders = variant.FindPropertyRelative("colliders");
+                Assert.That(edge, Is.Not.EqualTo(RoomCeilingEdge.None));
+                Assert.That(edges.Add(edge), Is.True, $"Duplicate ceiling edge variant: {edge}.");
+                Assert.That(passageRoot, Is.Not.Null);
+                Assert.That(passageRoot.transform.IsChildOf(roomInstance.transform), Is.True);
+                Assert.That(passageRoot.activeSelf, Is.False);
+                Assert.That(renderers.arraySize, Is.EqualTo(26),
+                    "Each variant contains three panes, three frames, two strip segments, two housings, two edge trims, and fourteen ladder meshes.");
+                Assert.That(colliders.arraySize, Is.EqualTo(3),
+                    "Three solid pieces leave an exact centered 2 m by 2.4 m ceiling-edge opening.");
+
+                BoxCollider left = passageRoot.GetComponentsInChildren<BoxCollider>(true)
+                    .Single(collider => collider.name == "Ceiling Doorway Collider Left");
+                BoxCollider right = passageRoot.GetComponentsInChildren<BoxCollider>(true)
+                    .Single(collider => collider.name == "Ceiling Doorway Collider Right");
+                BoxCollider header = passageRoot.GetComponentsInChildren<BoxCollider>(true)
+                    .Single(collider => collider.name == "Ceiling Doorway Collider Header");
+                float openingWidth = right.transform.localPosition.x + right.center.x - right.size.x * 0.5f
+                    - (left.transform.localPosition.x + left.center.x + left.size.x * 0.5f);
+                float openingHeight = header.transform.localPosition.y + header.center.y - header.size.y * 0.5f
+                    - (-CubeRoom.InteriorHeight * 0.5f);
+                Assert.That(openingWidth, Is.EqualTo(CubeRoom.DoorwayWidth).Within(0.001f));
+                Assert.That(openingHeight, Is.EqualTo(CubeRoom.DoorwayHeight).Within(0.001f));
+
+                CeilingLadder ladder = passageRoot.GetComponentInChildren<CeilingLadder>(true);
+                Assert.That(ladder, Is.Not.Null);
+                Assert.That(ladder.GetComponentsInChildren<Renderer>(true), Has.Length.EqualTo(14));
+                Assert.That(ladder.GetComponentsInChildren<Collider>(true).All(collider => collider.isTrigger), Is.True,
+                    "Ladder art must remain non-solid; only its traversal trigger may collide.");
+            }
+
+            Assert.That(edges, Is.EquivalentTo(new[]
+            {
+                RoomCeilingEdge.West,
+                RoomCeilingEdge.East,
+                RoomCeilingEdge.South,
+                RoomCeilingEdge.North,
+            }));
+
+            ceiling.SetConnectionState(
+                true,
+                RoomPassageKind.CeilingToSideDoorway,
+                RoomCeilingEdge.West,
+                true);
+            Assert.That(ceiling.ActivePassageRoot, Is.Not.Null);
+            Assert.That(ceiling.ActivePassageRoot.name, Does.StartWith("West"));
+            Assert.That(ceiling.ClosedRenderers.All(renderer => !renderer.enabled), Is.True);
+            Assert.That(ceiling.ClosedColliders.All(collider => !collider.enabled), Is.True);
+            Assert.That(ceiling.EdgeCrossingRoots[0].activeSelf, Is.False,
+                "The full perimeter strip crossing an active aperture must be replaced by split segments.");
+            Assert.That(ceiling.EdgeCrossingRoots.Skip(1).All(crossing => crossing.activeSelf), Is.True);
+            Assert.That(ceiling.ActivePassageRoot.GetComponentInChildren<CeilingLadder>(true), Is.Not.Null);
+            ceiling.ResetConnectionState();
+            Assert.That(ceiling.ActivePassageRoot, Is.Null);
+            Assert.That(ceiling.ClosedRenderers.All(renderer => renderer.enabled), Is.True);
+            Assert.That(ceiling.ClosedColliders.All(collider => collider.enabled), Is.True);
+            Assert.That(ceiling.EdgeCrossingRoots.All(crossing => crossing.activeSelf), Is.True);
         }
 
         private static void AssertPrefabSource(GameObject instanceObject, string expectedPath)

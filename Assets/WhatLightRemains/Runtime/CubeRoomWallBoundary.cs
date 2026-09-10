@@ -34,6 +34,7 @@ namespace WhatLightRemains.Runtime
         public IReadOnlyList<Renderer> DoorwayBaseTrimRenderers => doorwayBaseTrimRenderers;
         public Collider ClosedCollider => closedCollider;
         public IReadOnlyList<Collider> DoorwayColliders => doorwayColliders;
+        public event Action StateChanged;
 
         public void Configure(
             CubeRoomWall newWall,
@@ -84,6 +85,7 @@ namespace WhatLightRemains.Runtime
             hasDoorway = connected;
             ownsBoundary = !connected || ownsSharedBoundary;
             ApplyState();
+            NotifyStateChanged();
         }
 
         public void ResetConnectionState()
@@ -91,6 +93,7 @@ namespace WhatLightRemains.Runtime
             hasDoorway = false;
             ownsBoundary = true;
             ApplyState();
+            NotifyStateChanged();
         }
 
         public void ApplyState()
@@ -170,6 +173,16 @@ namespace WhatLightRemains.Runtime
             }
 
             ApplyState();
+        }
+
+        private void NotifyStateChanged()
+        {
+            StateChanged?.Invoke();
+            CubeRoom room = GetComponentInParent<CubeRoom>();
+            if (room != null && room.Lighting != null)
+            {
+                room.Lighting.ApplySettings();
+            }
         }
 
         private static void SetEnabled(Renderer renderer, bool enabled)

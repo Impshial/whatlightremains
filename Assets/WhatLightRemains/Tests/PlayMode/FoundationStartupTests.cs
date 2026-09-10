@@ -40,11 +40,17 @@ namespace WhatLightRemains.Tests
             Assert.That(layout.AdditionalRoomCount, Is.EqualTo(0));
             Assert.That(layout.Rooms, Has.Count.EqualTo(1));
             Assert.That(layout.GridCells, Is.EqualTo(new[] { Vector2Int.zero }));
+            Assert.That(layout.GridCells3D, Is.EqualTo(new[] { Vector3Int.zero }));
             Assert.That(layout.PrimaryRoom, Is.SameAs(rooms[0]));
             Assert.That(tracker.CurrentRoom, Is.SameAs(layout.PrimaryRoom));
             Assert.That(creation.IsCreateMode, Is.False);
             Assert.That(creation.HasValidPreview, Is.False);
             Assert.That(prompt.CurrentText, Is.EqualTo(RoomCreationPromptView.NormalText));
+            Assert.That(prompt.RotationLabel, Is.Not.Null);
+            Assert.That(prompt.RotationLabel.gameObject.activeSelf, Is.False);
+            Assert.That(layout.PrimaryRoom.GetConnectedRoom(CubeRoomFace.Ceiling), Is.Null);
+            Assert.That(layout.PrimaryRoom.CeilingBoundary, Is.Not.Null);
+            Assert.That(layout.PrimaryRoom.CeilingBoundary.ClosedColliders.All(collider => collider.enabled), Is.True);
 
             foreach (CubeRoomWall wall in System.Enum.GetValues(typeof(CubeRoomWall)))
             {
@@ -55,6 +61,10 @@ namespace WhatLightRemains.Tests
             }
 
             Assert.That(FindInScene<FirstPersonMotor>(loadedScene), Has.Count.EqualTo(1));
+            Assert.That(FindInScene<KinematicCapsuleMover>(loadedScene), Has.Count.EqualTo(1));
+            Assert.That(FindInScene<PlayerGravityAlignment>(loadedScene), Has.Count.EqualTo(1));
+            Assert.That(FindInScene<PlayerLadderTraversal>(loadedScene), Has.Count.EqualTo(1));
+            Assert.That(FindInScene<CharacterController>(loadedScene), Is.Empty);
             Assert.That(FindInScene<HotbarView>(loadedScene), Has.Count.EqualTo(1));
             Assert.That(FindInScene<Camera>(loadedScene), Has.Count.EqualTo(2));
             AssertCameraStack(FindInScene<Camera>(loadedScene));

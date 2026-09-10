@@ -35,6 +35,8 @@ namespace WhatLightRemains.Runtime
         [SerializeField] private Collider[] wallBoundaryColliders = new Collider[4];
         [SerializeField] private CubeRoomWallBoundary[] wallBoundaries = new CubeRoomWallBoundary[4];
         [SerializeField, HideInInspector] private CubeRoom[] connectedRooms = new CubeRoom[4];
+        [SerializeField] private CubeRoomCeilingBoundary ceilingBoundary;
+        [SerializeField, HideInInspector] private RoomFaceConnection[] faceConnections = new RoomFaceConnection[6];
 
         public float GravityStrength
         {
@@ -47,6 +49,7 @@ namespace WhatLightRemains.Runtime
         public CubeRoomLighting Lighting => lighting;
         public RoomOccupancyVolume OccupancyVolume => occupancyVolume;
         public Vector3 InteriorSize => new Vector3(InteriorWidth, InteriorHeight, InteriorDepth);
+        public CubeRoomCeilingBoundary CeilingBoundary => ceilingBoundary;
 
         public void Configure(
             float newGravityStrength,
@@ -127,11 +130,70 @@ namespace WhatLightRemains.Runtime
             return connectedRooms[index];
         }
 
+        public CubeRoom GetConnectedRoom(CubeRoomFace face)
+        {
+            EnsureFaceConnectionArray();
+            return faceConnections[(int)face].Neighbor;
+        }
+
+        public RoomFaceConnection GetConnection(CubeRoomFace face)
+        {
+            EnsureFaceConnectionArray();
+            return faceConnections[(int)face];
+        }
+
+        public bool HasDoorway(CubeRoomFace face)
+        {
+            return GetConnection(face).IsTraversable;
+        }
+
+        public void SetFaceConnection(
+            CubeRoomFace face,
+            CubeRoom neighbor,
+            CubeRoomFace neighborFace,
+            RoomPassageKind passageKind,
+            RoomCeilingEdge ceilingEdge,
+            bool ownsSharedBoundary)
+        {
+            EnsureFaceConnectionArray();
+            faceConnections[(int)face] = new RoomFaceConnection(
+                neighbor,
+                neighborFace,
+                passageKind,
+                ceilingEdge,
+                ownsSharedBoundary);
+
+            if (TryGetWall(face, out CubeRoomWall wall))
+            {
+                EnsureConnectionArray();
+                connectedRooms[(int)wall] = neighbor;
+                CubeRoomWallBoundary boundary = GetWallBoundary(wall);
+                if (boundary != null)
+                {
+                    boundary.SetConnectionState(
+                        neighbor != null && passageKind != RoomPassageKind.Sealed,
+                        ownsSharedBoundary);
+                }
+                else
+                {
+                    SetLegacyWallEnabled(wall, neighbor == null);
+                }
+            }
+            else if (face == CubeRoomFace.Ceiling && ceilingBoundary != null)
+            {
+                ceilingBoundary.SetConnectionState(neighbor != null, passageKind, ceilingEdge, ownsSharedBoundary);
+            }
+        }
+
         public void SetWallConnection(CubeRoomWall wall, CubeRoom neighbor, bool ownsSharedBoundary)
         {
-            EnsureConnectionArray();
-            connectedRooms[(int)wall] = neighbor;
-            SetWallConnection(wall, neighbor != null, ownsSharedBoundary);
+            SetFaceConnection(
+                ToFace(wall),
+                neighbor,
+                ToFace(GetOppositeWall(wall)),
+                neighbor != null ? RoomPassageKind.SideDoorway : RoomPassageKind.None,
+                RoomCeilingEdge.None,
+                ownsSharedBoundary);
         }
 
         public void SetWallConnection(CubeRoomWall wall, bool connected, bool ownsSharedBoundary)
@@ -157,6 +219,12 @@ namespace WhatLightRemains.Runtime
 
         public void ResetWallConnections()
         {
+            ResetFaceConnections();
+        }
+
+        public void ResetFaceConnections()
+        {
+            EnsureFaceConnectionArray();
             for (int index = 0; index < 4; index++)
             {
                 CubeRoomWallBoundary boundary = GetWallBoundary((CubeRoomWall)index);
@@ -172,6 +240,45 @@ namespace WhatLightRemains.Runtime
                 EnsureConnectionArray();
                 connectedRooms[index] = null;
             }
+
+            for (int index = 0; index < faceConnections.Length; index++)
+            {
+                faceConnections[index] = default;
+            }
+
+            if (ceilingBoundary != null)
+            {
+                ceilingBoundary.ResetConnectionState();
+            }
+        }
+
+        public void ConfigureCeilingBoundary(CubeRoomCeilingBoundary boundary)
+        {
+            ceilingBoundary = boundary;
+        }
+
+        public Vector3 GetFaceAnchorLocal(CubeRoomFace face, CubeRoomWallAnchor anchor)
+        {
+            if (TryGetWall(face, out CubeRoomWall wall))
+            {
+                return GetWallAnchorLocal(wall, anchor);
+            }
+
+            bool second = anchor == CubeRoomWallAnchor.LowerSecond || anchor == CubeRoomWallAnchor.UpperSecond;
+            bool upper = anchor == CubeRoomWallAnchor.UpperFirst || anchor == CubeRoomWallAnchor.UpperSecond;
+            float x = second ? InteriorWidth * 0.5f : -InteriorWidth * 0.5f;
+            float z = upper ? InteriorDepth * 0.5f : -InteriorDepth * 0.5f;
+            return new Vector3(x, face == CubeRoomFace.Ceiling ? InteriorHeight : 0f, z);
+        }
+
+        public Vector3 GetFaceAnchorWorld(CubeRoomFace face, CubeRoomWallAnchor anchor)
+        {
+            return transform.TransformPoint(GetFaceAnchorLocal(face, anchor));
+        }
+
+        public Vector3 GetFaceNormalWorld(CubeRoomFace face)
+        {
+            return transform.TransformDirection(GetFaceNormalLocal(face));
         }
 
         public Vector3 GetWallAnchorLocal(CubeRoomWall wall, CubeRoomWallAnchor anchor)
@@ -213,6 +320,54 @@ namespace WhatLightRemains.Runtime
                 CubeRoomWall.North => Vector3.forward,
                 _ => throw new System.ArgumentOutOfRangeException(nameof(wall), wall, null),
             };
+        }
+
+        public static Vector3 GetFaceNormalLocal(CubeRoomFace face)
+        {
+            return face switch
+            {
+                CubeRoomFace.West => Vector3.left,
+                CubeRoomFace.East => Vector3.right,
+                CubeRoomFace.South => Vector3.back,
+                CubeRoomFace.North => Vector3.forward,
+                CubeRoomFace.Floor => Vector3.down,
+                CubeRoomFace.Ceiling => Vector3.up,
+                _ => throw new System.ArgumentOutOfRangeException(nameof(face), face, null),
+            };
+        }
+
+        public static Vector3Int GetGridDirection(CubeRoomFace face)
+        {
+            Vector3 normal = GetFaceNormalLocal(face);
+            return Vector3Int.RoundToInt(normal);
+        }
+
+        public static CubeRoomFace GetOppositeFace(CubeRoomFace face)
+        {
+            return face switch
+            {
+                CubeRoomFace.West => CubeRoomFace.East,
+                CubeRoomFace.East => CubeRoomFace.West,
+                CubeRoomFace.South => CubeRoomFace.North,
+                CubeRoomFace.North => CubeRoomFace.South,
+                CubeRoomFace.Floor => CubeRoomFace.Ceiling,
+                CubeRoomFace.Ceiling => CubeRoomFace.Floor,
+                _ => throw new System.ArgumentOutOfRangeException(nameof(face), face, null),
+            };
+        }
+
+        public static CubeRoomFace ToFace(CubeRoomWall wall) => (CubeRoomFace)(int)wall;
+
+        public static bool TryGetWall(CubeRoomFace face, out CubeRoomWall wall)
+        {
+            if ((int)face >= 0 && (int)face < 4)
+            {
+                wall = (CubeRoomWall)(int)face;
+                return true;
+            }
+
+            wall = default;
+            return false;
         }
 
         public static Vector2Int GetGridDirection(CubeRoomWall wall)
@@ -340,6 +495,7 @@ namespace WhatLightRemains.Runtime
             lighting = GetComponentInChildren<CubeRoomLighting>(true);
             occupancyVolume = GetComponentInChildren<RoomOccupancyVolume>(true);
             DiscoverWallBoundaries();
+            ceilingBoundary = GetComponentInChildren<CubeRoomCeilingBoundary>(true);
             LinkOccupancyVolume();
         }
 
@@ -350,6 +506,7 @@ namespace WhatLightRemains.Runtime
             wallBoundaryColliders ??= new Collider[4];
             wallBoundaries ??= new CubeRoomWallBoundary[4];
             EnsureConnectionArray();
+            EnsureFaceConnectionArray();
 
             if (lighting == null)
             {
@@ -362,6 +519,10 @@ namespace WhatLightRemains.Runtime
             }
 
             DiscoverWallBoundaries();
+            if (ceilingBoundary == null)
+            {
+                ceilingBoundary = GetComponentInChildren<CubeRoomCeilingBoundary>(true);
+            }
             LinkOccupancyVolume();
         }
 
@@ -438,6 +599,14 @@ namespace WhatLightRemains.Runtime
             if (connectedRooms == null || connectedRooms.Length != 4)
             {
                 connectedRooms = new CubeRoom[4];
+            }
+        }
+
+        private void EnsureFaceConnectionArray()
+        {
+            if (faceConnections == null || faceConnections.Length != 6)
+            {
+                faceConnections = new RoomFaceConnection[6];
             }
         }
 
