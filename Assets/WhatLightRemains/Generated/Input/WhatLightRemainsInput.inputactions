@@ -1,0 +1,28 @@
+{
+    "name": "WhatLightRemainsInput",
+    "maps": [
+        {
+            "name": "Player",
+            "id": "f8a49a86-ae6d-4fea-95ea-ecf86658712b",
+            "actions": [
+                { "name": "Move", "type": "Value", "id": "fbaacdfa-4418-445b-8428-0dfa08ec6218", "expectedControlType": "Vector2", "processors": "", "interactions": "", "initialStateCheck": true },
+                { "name": "Look", "type": "Value", "id": "e2f84b39-d0cb-42fd-8d65-5d5c1b541c5c", "expectedControlType": "Vector2", "processors": "", "interactions": "", "initialStateCheck": true },
+                { "name": "Jump", "type": "Button", "id": "1fd455b7-9d8c-477b-9ea8-4584bd57f3fa", "expectedControlType": "Button", "processors": "", "interactions": "", "initialStateCheck": false },
+                { "name": "ReleaseCursor", "type": "Button", "id": "b75f8437-030b-4f69-a654-0ef177ac9fb1", "expectedControlType": "Button", "processors": "", "interactions": "", "initialStateCheck": false },
+                { "name": "CaptureCursor", "type": "Button", "id": "f3525105-cb20-4cd8-bf43-ef95eb8ee037", "expectedControlType": "Button", "processors": "", "interactions": "", "initialStateCheck": false }
+            ],
+            "bindings": [
+                { "name": "WASD", "id": "547d0149-dfbb-4be4-b147-475b0ceaa247", "path": "2DVector", "interactions": "", "processors": "", "groups": "", "action": "Move", "isComposite": true, "isPartOfComposite": false },
+                { "name": "up", "id": "6ad44007-af59-46fd-ab0c-96e909cb5250", "path": "<Keyboard>/w", "interactions": "", "processors": "", "groups": "", "action": "Move", "isComposite": false, "isPartOfComposite": true },
+                { "name": "down", "id": "3ccfa9de-3934-4193-b30f-459c52cf78e1", "path": "<Keyboard>/s", "interactions": "", "processors": "", "groups": "", "action": "Move", "isComposite": false, "isPartOfComposite": true },
+                { "name": "left", "id": "469ecc17-efda-4a83-9b7d-2f63cee584be", "path": "<Keyboard>/a", "interactions": "", "processors": "", "groups": "", "action": "Move", "isComposite": false, "isPartOfComposite": true },
+                { "name": "right", "id": "5d44915f-fbe0-4f0e-bfed-1f68636a448c", "path": "<Keyboard>/d", "interactions": "", "processors": "", "groups": "", "action": "Move", "isComposite": false, "isPartOfComposite": true },
+                { "name": "", "id": "cda9e182-3d11-41a6-a562-d080ce5c6664", "path": "<Mouse>/delta", "interactions": "", "processors": "", "groups": "", "action": "Look", "isComposite": false, "isPartOfComposite": false },
+                { "name": "", "id": "0a60c9ac-b0db-4c52-8d68-d80e48979076", "path": "<Keyboard>/space", "interactions": "", "processors": "", "groups": "", "action": "Jump", "isComposite": false, "isPartOfComposite": false },
+                { "name": "", "id": "27d14848-d21b-4275-9b98-05ca76289f74", "path": "<Keyboard>/escape", "interactions": "", "processors": "", "groups": "", "action": "ReleaseCursor", "isComposite": false, "isPartOfComposite": false },
+                { "name": "", "id": "7eb4af7e-76e6-4b7a-bd29-b6fa98d1b3be", "path": "<Mouse>/leftButton", "interactions": "", "processors": "", "groups": "", "action": "CaptureCursor", "isComposite": false, "isPartOfComposite": false }
+            ]
+        }
+    ],
+    "controlSchemes": []
+}

@@ -1,0 +1,10 @@
+{
+  "name": "WhatLightRemains.Runtime",
+  "rootNamespace": "WhatLightRemains.Runtime",
+  "references": [
+    "Unity.InputSystem",
+    "Unity.RenderPipelines.Universal.Runtime",
+    "Unity.UGUI"
+  ],
+  "autoReferenced": true
+}

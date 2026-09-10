@@ -1,0 +1,10 @@
+* text=auto
+*.cs text diff=csharp
+*.json text
+*.asmdef text
+*.inputactions text
+*.unity text merge=unityyamlmerge eol=lf whitespace=-blank-at-eol
+*.prefab text merge=unityyamlmerge eol=lf whitespace=-blank-at-eol
+*.asset text merge=unityyamlmerge eol=lf whitespace=-blank-at-eol
+*.mat text merge=unityyamlmerge eol=lf whitespace=-blank-at-eol
+*.meta text merge=unityyamlmerge eol=lf whitespace=-blank-at-eol

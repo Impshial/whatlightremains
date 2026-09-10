@@ -1,0 +1,25 @@
+{
+  "name": "WhatLightRemains.Tests.EditMode",
+  "rootNamespace": "WhatLightRemains.Tests",
+  "references": [
+    "WhatLightRemains.Runtime",
+    "Unity.InputSystem",
+    "Unity.UGUI",
+    "Unity.RenderPipelines.Core.Runtime",
+    "Unity.RenderPipelines.Universal.Runtime"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false,
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}
