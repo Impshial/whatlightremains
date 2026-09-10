@@ -1,5 +1,6 @@
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
 using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 
@@ -18,6 +19,7 @@ namespace WhatLightRemains.Runtime
         private bool exteriorView;
         private bool validationView;
         private bool cursorSmoke;
+        private bool creationPreview;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void InstallWhenRequested()
@@ -28,6 +30,10 @@ namespace WhatLightRemains.Runtime
             {
                 return;
             }
+
+            // Automated verification launches the development player without stealing
+            // focus from the user. Keep rendering long enough to produce the capture.
+            Application.runInBackground = true;
 
             if (int.TryParse(ReadArgument(arguments, "-wlrClusterSeed"), out int clusterSeed))
             {
@@ -53,6 +59,7 @@ namespace WhatLightRemains.Runtime
             capture.exteriorView = HasArgument(arguments, "-wlrExterior");
             capture.validationView = HasArgument(arguments, "-wlrValidationView");
             capture.cursorSmoke = HasArgument(arguments, "-wlrCursorSmoke");
+            capture.creationPreview = HasArgument(arguments, "-wlrCreationPreview");
         }
 
         private IEnumerator Start()
@@ -66,7 +73,14 @@ namespace WhatLightRemains.Runtime
                 }
             }
 
-            if (exteriorView)
+            if (creationPreview)
+            {
+                // Allow the scene's normal Start methods to capture input and establish
+                // the authored starting-room assignment before entering Create mode.
+                yield return null;
+                ConfigureCreationPreview();
+            }
+            else if (exteriorView)
             {
                 ConfigureExteriorView();
             }
@@ -113,19 +127,69 @@ namespace WhatLightRemains.Runtime
                 File.Delete(outputPath);
             }
 
-            ScreenCapture.CaptureScreenshot(outputPath);
-            float timeout = Time.realtimeSinceStartup + 5f;
-            while ((!File.Exists(outputPath) || new FileInfo(outputPath).Length == 0)
-                   && Time.realtimeSinceStartup < timeout)
-            {
-                yield return null;
-            }
-
-            bool succeeded = File.Exists(outputPath) && new FileInfo(outputPath).Length > 0;
+            bool succeeded = CaptureOffscreenFrame();
             Debug.Log(succeeded
                 ? $"Development screenshot saved to {outputPath} at {Screen.width}x{Screen.height}."
                 : $"Development screenshot timed out: {outputPath}.");
             Application.Quit(succeeded && cursorSmokePassed ? 0 : 2);
+        }
+
+        private bool CaptureOffscreenFrame()
+        {
+            Camera camera = Camera.main;
+            if (camera == null)
+            {
+                Debug.LogError("Development capture requires a tagged Main Camera.");
+                return false;
+            }
+
+            RenderTexture target = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32);
+            RenderTexture previousActive = RenderTexture.active;
+            RenderTexture previousTarget = camera.targetTexture;
+            List<(Canvas canvas, RenderMode mode, Camera worldCamera, float planeDistance)> canvases = new();
+            Texture2D pixels = null;
+            try
+            {
+                // Camera.Render can run while the verification player is hidden. Temporarily
+                // route overlay canvases through the gameplay camera so the HUD is included.
+                foreach (Canvas canvas in FindObjectsByType<Canvas>(FindObjectsSortMode.None))
+                {
+                    if (canvas.renderMode != RenderMode.ScreenSpaceOverlay)
+                    {
+                        continue;
+                    }
+
+                    canvases.Add((canvas, canvas.renderMode, canvas.worldCamera, canvas.planeDistance));
+                    canvas.renderMode = RenderMode.ScreenSpaceCamera;
+                    canvas.worldCamera = camera;
+                    canvas.planeDistance = 0.5f;
+                }
+
+                camera.targetTexture = target;
+                camera.Render();
+                RenderTexture.active = target;
+                pixels = new Texture2D(width, height, TextureFormat.RGBA32, false);
+                pixels.ReadPixels(new Rect(0f, 0f, width, height), 0, 0, false);
+                pixels.Apply(false, false);
+                File.WriteAllBytes(outputPath, pixels.EncodeToPNG());
+                return File.Exists(outputPath) && new FileInfo(outputPath).Length > 0;
+            }
+            finally
+            {
+                camera.targetTexture = previousTarget;
+                RenderTexture.active = previousActive;
+                foreach ((Canvas canvas, RenderMode mode, Camera worldCamera, float planeDistance) in canvases)
+                {
+                    if (canvas == null) continue;
+                    canvas.renderMode = mode;
+                    canvas.worldCamera = worldCamera;
+                    canvas.planeDistance = planeDistance;
+                }
+
+                if (pixels != null) Destroy(pixels);
+                target.Release();
+                Destroy(target);
+            }
         }
 
         private static string ReadArgument(string[] arguments, string name)
@@ -234,6 +298,44 @@ namespace WhatLightRemains.Runtime
             if (Camera.main != null)
             {
                 Camera.main.fieldOfView = 65f;
+            }
+        }
+
+        private static void ConfigureCreationPreview()
+        {
+            FirstPersonMotor motor = FindAnyObjectByType<FirstPersonMotor>();
+            CubeRoomClusterGenerator layout = FindAnyObjectByType<CubeRoomClusterGenerator>();
+            RoomCreationController creation = FindAnyObjectByType<RoomCreationController>();
+            Camera camera = Camera.main;
+            if (motor == null || layout == null || layout.PrimaryRoom == null || creation == null || camera == null)
+            {
+                Debug.LogError("Creation preview capture could not resolve the player, room layout, and creation controller.");
+                return;
+            }
+
+            CubeRoom room = layout.PrimaryRoom;
+            motor.enabled = false;
+            CharacterController controller = motor.GetComponent<CharacterController>();
+            if (controller != null)
+            {
+                controller.enabled = false;
+            }
+
+            Vector3 playerPosition = room.transform.TransformPoint(new Vector3(0f, 0.05f, 0f));
+            Vector3 north = room.GetWallNormalWorld(CubeRoomWall.North);
+            motor.transform.SetPositionAndRotation(playerPosition, Quaternion.LookRotation(north, room.RoomUp));
+            Transform pitchPivot = motor.transform.Find("Pitch Pivot");
+            if (pitchPivot != null)
+            {
+                pitchPivot.localRotation = Quaternion.identity;
+            }
+
+            PlayerLook look = motor.GetComponent<PlayerLook>();
+            look?.CaptureCursor();
+            if (!creation.EnterCreateMode()
+                || !creation.RefreshTarget(new Ray(camera.transform.position, camera.transform.forward)))
+            {
+                Debug.LogError("Creation preview capture failed to establish a valid snapped room ghost.");
             }
         }
 

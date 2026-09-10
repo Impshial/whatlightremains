@@ -1,51 +1,75 @@
 # Foundation Verification Report
 
-The randomized runtime-cluster, connected-doorway, opacity-control, embedded strip-emitter, and visible base-rail revision has passed its automated Unity validation. A full human walkthrough remains pending.
+The player room-creation milestone has passed its generated-asset, EditMode, PlayMode, Windows-build, and automated visual checks in Unity `6000.5.8f1`. A subjective hands-on walkthrough remains appropriate for feel and final art approval.
 
 ## Current status
 
-The generated assets and scenes were rebuilt in Unity `6000.5.8f1` before the recorded test runs:
+All generated prefabs, materials, input actions, and scenes were rebuilt from `FoundationBuilder.BuildAll` before the final recorded test runs.
 
 | Check | Result | Evidence |
 | --- | ---: | --- |
-| EditMode | Passed — 19/19 | `TestResults/editmode-final.xml` |
-| PlayMode | Passed — 7/7 | `TestResults/playmode-final.xml` |
-| Built-player visual checks | Passed — targeted 1920×1080 | `Artifacts/Final-Room-Lighting.png` and `Artifacts/Final-Doorway-Seam.png`; the embedded floor-end illumination has no old curved cutoff, and the dedicated base rail reads continuously along the glass/floor seam |
-| Windows x64 development build | Passed — Unity build pipeline | `Build/Windows/WhatLightRemains.exe`; 201,536,346-byte successful build output |
-| Build-excluded validation fixture | Pending | Rebuild `Build/Validation/WhatLightRemainsValidation.exe` |
-| Built-player startup | Pending | Smoke-test the rebuilt Foundation scene |
-| Cursor release/recapture | Passed — automated | Covered by `TestResults/playmode-final.xml`; physical mouse/keyboard smoke check remains manual |
+| EditMode | Passed — 25/25 | `TestResults/editmode-room-creation.xml` |
+| PlayMode | Passed — 10/10 | `TestResults/playmode-room-creation.xml` |
+| Regeneration regression | Passed | The final EditMode and PlayMode suites ran after rebuilding every generated asset |
+| Windows x64 development build | Passed | `Build/Windows/WhatLightRemains.exe`; Unity reported a 201,560,766-byte successful build output |
+| Create-mode visual, 1920×1080 | Passed | `Artifacts/RoomCreation/creation-1920x1080.png` |
+| Create-mode visual, 1280×720 | Passed | `Artifacts/RoomCreation/creation-1280x720.png` |
+| Built-player startup and cursor smoke | Passed | `Artifacts/RoomCreation/cursor-smoke.log`; release and recapture both reported `True` |
+| Build-excluded validation fixture | Not rebuilt for this milestone | Its authored scene and existing regression assertions remain intact |
 
-The EditMode suite covers rotated gravity direction and magnitude, room/lighting independence, exact 8 m room boundaries, exact eight-strip placement, the four configurable three-piece doorway variants and emissive frames, prefab ownership boundaries, surface texture import and material wiring, full-resolution URP opaque-scene sampling, the 0–100% opacity control, distributed shadow-free strip emitters, input actions, camera/HUD/scene wiring, Forward+, runtime-cluster configuration, and the separate validation fixture.
+The final captures show the complete snapped green cube outline through the starting room's glass, the exact Create-mode instruction at bottom left, the bottom-center hotbar, upper-right opacity control, floor material, viewmodel, room strips, and base rails at both target resolutions.
 
-The PlayMode suite covers explicit starting-room ownership, creation of exactly three additional rooms, connected non-overlapping random layouts on the 8 m grid, doorway pairing on every shared face, single-owner boundary deduplication, open-center/solid-jamb/solid-header collision probes, player traversal and occupancy transfer, the runtime glass-opacity shader override, disabled generated-room light shadows, 3 m/s cardinal and diagonal movement, the approximately 1 m jump apex, airborne jump rejection, landing, ceiling handling, sustained sealed-wall containment, and cursor state transitions.
+## Room-creation architecture
 
-## Visual review
+- Normal gameplay starts with exactly one registered room at logical cell `(0, 0)`. All four side boundaries are sealed and have no neighbor references.
+- `CubeRoomClusterGenerator` is the authoritative room registry and occupancy map. Candidate transforms are derived from the primary room transform and exact 8 m integer cell offsets, preventing accumulated spacing drift.
+- Every side wall exposes four canonical local-space snap anchors. Candidate validation checks all four corresponding points within `0.001 m` and verifies opposing face normals.
+- `RoomPlacementTargeting` analytically intersects the gameplay camera ray with the current room's logical bounds. The first boundary decides the result, so floors, ceilings, and connected doorways cannot fall through to distant geometry.
+- `RoomGhostPreview` creates one dedicated 12-edge wireframe with no room component, collider, trigger, gravity behavior, light, or shadow contribution. It is hidden immediately when targeting becomes invalid and destroyed on cancellation, success, focus loss, disable, or teardown.
+- `RoomCreationController` owns the single Create-mode state and synchronizes the preview and instruction label. A placement click re-targets and revalidates immediately before commit.
+- Successful placement instantiates the existing operational room prefab, copies the source room's initial gravity strength into an independent component, registers its occupied cell, and recomputes every cardinal shared-face connection. Multi-neighbor and four-neighbor gap fills open reciprocal doorways on every touching face; corner contact does not connect.
+- Glass opacity remains shader-global, so rooms created after a slider change immediately use that value and continue receiving future changes without material mutation or renderer rescans.
+- `FoundationBuilder` generates the C and left-click actions, preview material, player controller reference, HUD prompt, one-room scene configuration, and all updated prefabs/scenes idempotently.
 
-The targeted built-player captures confirm the continuous base rail and floor-end strip illumination in the regenerated room. A 1280×720 pass and full walkthrough remain manual. Full acceptance should confirm:
+## Automated coverage
 
-- Gameplay at 1920×1080 and 1280×720 starts with one authored primary room plus exactly three runtime-generated rooms, while retaining a readable floor, hand/device, and correctly scaled bottom-center hotbar against a black environment.
-- Across fresh play sessions, generated rooms form a connected random layout with exact 8 m face-adjacent spacing and no overlapping grid cells.
-- The 8 m floor uses generated high-definition base-color and normal detail while retaining a clearly readable 4 × 4 slab grid across its full surface.
-- At every shared seam, both rooms report the connection and expose the same centered 2 m × 2.4 m doorway while exactly one room owns the segmented glass, frame, and colliders.
-- Glass remains highly transmitting and free of point-light or reflection-like hotspots, with only sparse marks, adjustable slight translucency, and broad thick-glass distortion against geometry beyond it.
-- The exterior view shows four continuous vertical strips and four continuous ceiling-perimeter strips, each with a visible dark housing and bright core; there are no floor-perimeter strips or proxy-light hotspots.
-- The upper-right slider ranges from 0% to 100% opacity, starts at 3.5%, responds while the cursor is released, and updates every room consistently.
-- Generated rooms retain readable emissive strips and direct illumination from 28 broad spot emitters embedded inside the eight visible strips. Four sources sit inside the floor ends of the vertical strips; 170° cones and 12 m ranges move visible cone/range edges beyond the room floor, and all emitter shadows remain disabled.
-- Every glass/floor seam has a 0.12 m structural base rail using a dedicated mid-charcoal brushed-metal material. Connected boundaries replace the full rail with two side pieces so the 2 m doorway remains visually and physically open.
-- Doorway frames emit at a lower intensity than the primary room strips and follow the owning room's lighting enabled state.
-- With room lighting disabled, the emissive cores, floor, and lit viewmodel darken while the screen-space hotbar remains readable.
-- In the validation fixture, light reaches the external receiver through the glass, changing the source room does not affect the rotated room, and the opaque blocker casts the expected shadow.
-- The rebuilt executable launches into the intended Foundation scene and presentation.
+EditMode tests cover the existing room dimensions, rotated gravity, lighting/material independence, doorway geometry, glass and floor assets, opacity range, strip emitters, cameras, HUD, input bindings, and scene wiring. New placement coverage additionally verifies:
 
-## Manual-only and limitations
+- exact candidates and four-anchor alignment on all four starting walls;
+- deterministic current-room boundary targeting and floor/ceiling rejection;
+- occupied-cell rejection and absence of corner-only connections;
+- reciprocal two-neighbor and surrounded four-neighbor gap connections;
+- exact alignment across a 12-room chain with no cumulative transform drift;
+- generated prefab/player/HUD/input/preview-material integration;
+- one-room startup after a full regeneration.
 
-- Physical keyboard/mouse injection for WASD, mouse-look, and Space remains a manual smoke check. Automated motor/jump coverage, Input System bindings, and Escape/click cursor transitions were revalidated for this revision.
-- A human 360-degree walkthrough and subjective approval of movement feel, mouse sensitivity, floor detail, glass subtlety, strip visibility, lighting balance, and FOV remain manual polish checks.
-- Glass transmission is an intentionally nonphysical real-time approximation. Its custom unlit transparent pass mixes a slightly offset sample of URP's opaque-scene texture with sparse surface detail; Fresnel or specular reflections, absorption, caustics, bounced light, and physically accurate glass shadows are not implemented.
-- The thick-glass effect is deliberately subtle and screen-space. It can distort opaque geometry already present in URP's camera opaque texture, but cannot refract later transparent objects and may be nearly invisible against the black void.
-- All rooms use distributed, shadow-free spot emitters rather than point lights or center-aimed proxies. This is URP's real-time approximation of line emission: sources are embedded in the visible geometry and include the floor intersections. The 112-light four-room cluster still requires budgeting before larger clusters are visible.
-- Runtime-generated rooms are traversable through their shared doorways. Rotated-room generation and gravity-transition reorientation remain out of scope; all rooms in the current randomized cluster share the primary room's orientation and gravity direction.
-- The player consumes a rotated room's gravity vector and projects movement onto that room's horizontal plane, but physically reorienting the capsule/camera while traversing between rotated rooms is intentionally deferred with the rest of threshold traversal.
-- New validation captures and the development executable will include Unity's Development Build watermark by design.
-- Unity 6 automatically owns and seeds its global URP default Volume Profile. The durable no-effects configuration is enforced at the scene cameras: post-processing is disabled on both cameras, no scene Volume exists, the PC pipeline has no assigned default profile, and the renderer has no active SSAO feature.
+PlayMode tests cover movement, normalized diagonal speed, jump apex, grounded-only jumping, landing, ceiling handling, sealed-wall containment, cursor state transitions, newly constructed doorway traversal, and room-ownership transfer. New runtime coverage additionally verifies:
+
+- Create-mode entry and exact HUD text;
+- one snapped, nonphysical, non-lighting ghost;
+- one-click placement producing exactly one operational room and then cleaning up the ghost;
+- invalid floor aim and connected-boundary rejection without leaving Create mode;
+- targeting recomputation after `CurrentRoom` changes;
+- reciprocal doorway creation, independent gravity, and no duplicate player/camera/HUD;
+- current and future opacity propagation to newly created rooms.
+
+## In-game walkthrough
+
+1. Enter Play Mode in `Foundation.unity`; confirm the player begins in one enclosed 8 m room and the bottom-left label reads `Press C to create a room`.
+2. Press `C` while the cursor is captured. Movement, look, and jump remain active, and the label changes to `Left-Click to finalize placement`.
+3. Look at the center of an unconnected side wall. A fully snapped green cube outline appears outside the glass. Aim at the floor, ceiling, or open space to verify it disappears without leaving Create mode.
+4. Aim back at the wall and left-click once. Exactly one real room appears, the ghost is destroyed, Create mode exits, and a centered doorway opens through the shared boundary.
+5. Walk through the doorway. Once room ownership transfers, press `C` and add another room from the new current room.
+6. To exercise multi-neighbor connection manually, build a U-shaped path around an empty grid cell, enter an adjacent room, and fill the gap. Every complete shared side face should open; merely touching a corner should not.
+7. Press `Escape` during Create mode. The ghost is removed, normal text returns, and the cursor remains available for the opacity slider. Left-click away from the slider to recapture it.
+
+## Manual-only checks and limitations
+
+- Physical keyboard/mouse feel, a full 360-degree walkthrough, and subjective approval of mouse sensitivity, floor detail, glass subtlety, strip balance, doorway presentation, and FOV remain human polish checks.
+- Saving/loading constructed layouts, deletion, undo, rotation controls, vertical stacking, costs, power requirements, inventory consumption, and arbitrary room caps are intentionally outside this milestone.
+- All player-created rooms currently share the source orientation and initial gravity direction. Independent gravity values are supported, but capsule/camera reorientation across rotated-room thresholds remains deferred.
+- Glass transmission is an intentionally nonphysical URP approximation. It does not provide caustics, bounced light, physical absorption, refraction of later transparent objects, or accurate glass shadows.
+- Each room retains 28 distributed, shadow-free spot emitters embedded in its strips. Forward+ avoids the old per-object light limit, but very large player-built layouts will eventually require visibility-aware light budgeting.
+- The green preview is a lightweight unlit line representation. It deliberately contains no filled panes, floor, doorway preview, collision, gravity, or illumination.
+- The validation fixture was not rebuilt for this milestone. Its separate-room lighting, transmitted-light receiver, and opaque-blocker visual checks remain available for a future lighting-focused pass.
+- Development captures and the executable include Unity's Development Build behavior by design.

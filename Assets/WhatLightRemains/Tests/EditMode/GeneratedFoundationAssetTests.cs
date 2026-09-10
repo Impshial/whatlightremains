@@ -25,6 +25,7 @@ namespace WhatLightRemains.Tests
         private const string StripMaterialPath = "Assets/WhatLightRemains/Generated/Materials/LightStrip.mat";
         private const string StripHousingMaterialPath = "Assets/WhatLightRemains/Generated/Materials/LightStripHousing.mat";
         private const string BaseRailMaterialPath = "Assets/WhatLightRemains/Generated/Materials/BaseRail.mat";
+        private const string RoomPreviewMaterialPath = "Assets/WhatLightRemains/Generated/Materials/RoomPreview.mat";
         private const string FloorBaseColorPath = "Assets/WhatLightRemains/Art/Textures/Floor/Floor_BaseColor.png";
         private const string FloorNormalPath = "Assets/WhatLightRemains/Art/Textures/Floor/Floor_Normal.png";
         private const string GlassDetailPath = "Assets/WhatLightRemains/Art/Textures/Glass/Glass_Detail.png";
@@ -87,6 +88,7 @@ namespace WhatLightRemains.Tests
             Assert.That(player.GetComponentInChildren<FirstPersonMotor>(true), Is.Not.Null);
             Assert.That(player.GetComponentInChildren<FirstPersonInput>(true), Is.Not.Null);
             Assert.That(player.GetComponentInChildren<PlayerRoomTracker>(true), Is.Not.Null);
+            Assert.That(player.GetComponentInChildren<RoomCreationController>(true), Is.Not.Null);
             Assert.That(player.GetComponentInChildren<Camera>(true), Is.Not.Null);
             Assert.That(player.GetComponentInChildren<CubeRoom>(true), Is.Null);
             Assert.That(
@@ -114,6 +116,11 @@ namespace WhatLightRemains.Tests
             Assert.That(opacityControl.MinimumOpacity, Is.EqualTo(0f).Within(0.0001f));
             Assert.That(opacityControl.MaximumOpacity, Is.EqualTo(1f).Within(0.0001f));
             Assert.That(opacityControl.Opacity, Is.EqualTo(0.035f).Within(0.0001f));
+            RoomCreationPromptView creationPrompt = hotbar.GetComponentInChildren<RoomCreationPromptView>(true);
+            Assert.That(creationPrompt, Is.Not.Null);
+            Assert.That(creationPrompt.CurrentText, Is.EqualTo(RoomCreationPromptView.NormalText));
+            Assert.That(creationPrompt.InstructionLabel.rectTransform.anchorMin, Is.EqualTo(Vector2.zero));
+            Assert.That(creationPrompt.InstructionLabel.rectTransform.anchorMax, Is.EqualTo(Vector2.zero));
             Assert.That(hotbar.GetComponentsInChildren<Slider>(true), Has.Length.EqualTo(1));
             Assert.That(hotbar.transform.localScale, Is.EqualTo(Vector3.one));
             Assert.That(hotbar.GetComponentInChildren<Canvas>(true).renderMode, Is.EqualTo(RenderMode.ScreenSpaceOverlay));
@@ -135,6 +142,13 @@ namespace WhatLightRemains.Tests
             Assert.That(actions.FindAction("Player/Jump", true).bindings.Select(binding => binding.path), Does.Contain("<Keyboard>/space"));
             Assert.That(actions.FindAction("Player/ReleaseCursor", true).bindings.Select(binding => binding.path), Does.Contain("<Keyboard>/escape"));
             Assert.That(actions.FindAction("Player/CaptureCursor", true).bindings.Select(binding => binding.path), Does.Contain("<Mouse>/leftButton"));
+            Assert.That(actions.FindAction("Player/ToggleCreate", true).bindings.Select(binding => binding.path), Does.Contain("<Keyboard>/c"));
+            Assert.That(actions.FindAction("Player/PlaceRoom", true).bindings.Select(binding => binding.path), Does.Contain("<Mouse>/leftButton"));
+
+            Material preview = LoadRequiredAsset<Material>(RoomPreviewMaterialPath);
+            Assert.That(preview.shader.name, Is.EqualTo("Universal Render Pipeline/Unlit"));
+            Assert.That(preview.GetTag("RenderType", false, string.Empty), Is.EqualTo("Transparent"));
+            Assert.That(preview.renderQueue, Is.GreaterThan((int)RenderQueue.Transparent));
 
             Assert.That(
                 EditorBuildSettings.TryGetConfigObject("com.unity.input.settings.actions", out InputActionAsset configuredActions),
@@ -342,11 +356,19 @@ namespace WhatLightRemains.Tests
                 Assert.That(cluster.PrimaryRoom, Is.SameAs(rooms[0]));
                 Assert.That(cluster.PrimaryRoom.transform.parent, Is.SameAs(cluster.transform));
                 Assert.That(cluster.PrimaryRoom.transform.localPosition, Is.EqualTo(Vector3.zero));
-                Assert.That(cluster.AdditionalRoomCount, Is.EqualTo(3));
+                Assert.That(cluster.AdditionalRoomCount, Is.EqualTo(0));
                 Assert.That(cluster.RoomPrefab, Is.Not.Null);
                 Assert.That(AssetDatabase.GetAssetPath(cluster.RoomPrefab), Is.EqualTo(CubePrefabPath));
                 Assert.That(cluster.Rooms, Is.Empty, "Generated neighbors must not be serialized into the Foundation scene.");
-                Assert.That(cluster.GridCells, Is.Empty, "The random grid must be created afresh when play begins.");
+                Assert.That(cluster.GridCells, Is.Empty, "The runtime registry must initialize from the one authored room when play begins.");
+
+                RoomCreationController creation = players[0].GetComponent<RoomCreationController>();
+                Assert.That(creation, Is.Not.Null);
+                SerializedObject creationData = new SerializedObject(creation);
+                Assert.That(creationData.FindProperty("roomLayout").objectReferenceValue, Is.SameAs(cluster));
+                Assert.That(
+                    creationData.FindProperty("promptView").objectReferenceValue,
+                    Is.SameAs(hotbars[0].GetComponent<RoomCreationPromptView>()));
 
                 SerializedObject trackerData = new SerializedObject(trackers[0]);
                 Assert.That(

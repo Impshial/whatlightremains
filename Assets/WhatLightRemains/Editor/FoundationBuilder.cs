@@ -34,6 +34,7 @@ namespace WhatLightRemains.Editor
         private const string StripMaterialPath = MaterialsFolder + "/LightStrip.mat";
         private const string StripHousingMaterialPath = MaterialsFolder + "/LightStripHousing.mat";
         private const string BaseRailMaterialPath = MaterialsFolder + "/BaseRail.mat";
+        private const string RoomPreviewMaterialPath = MaterialsFolder + "/RoomPreview.mat";
         private const string HandMaterialPath = MaterialsFolder + "/Hand.mat";
         private const string ToolMaterialPath = MaterialsFolder + "/Tool.mat";
         private const string TestMaterialPath = MaterialsFolder + "/ValidationSurface.mat";
@@ -104,6 +105,7 @@ namespace WhatLightRemains.Editor
                 Material strip = CreateStripMaterial();
                 Material stripHousing = CreateStripHousingMaterial();
                 Material baseRail = CreateBaseRailMaterial();
+                Material roomPreview = CreateRoomPreviewMaterial();
                 Material hand = CreateLitMaterial(HandMaterialPath, new Color(0.62f, 0.31f, 0.20f, 1f), 0.38f);
                 Material tool = CreateLitMaterial(ToolMaterialPath, new Color(0.18f, 0.24f, 0.32f, 1f), 0.62f);
                 Material validation = CreateLitMaterial(TestMaterialPath, new Color(0.50f, 0.51f, 0.53f, 1f), 0.30f);
@@ -111,7 +113,7 @@ namespace WhatLightRemains.Editor
                 Sprite toolIcon = CreateToolIcon();
 
                 GameObject cubePrefab = CreateCubePrefab(glass, floor, strip, stripHousing, baseRail);
-                GameObject playerPrefab = CreatePlayerPrefab(inputActions, hand, tool, layers);
+                GameObject playerPrefab = CreatePlayerPrefab(inputActions, hand, tool, roomPreview, layers);
                 GameObject hotbarPrefab = CreateHotbarPrefab(toolIcon);
 
                 CreateFoundationScene(cubePrefab, playerPrefab, hotbarPrefab);
@@ -512,6 +514,28 @@ namespace WhatLightRemains.Editor
             return material;
         }
 
+        private static Material CreateRoomPreviewMaterial()
+        {
+            Material material = LoadOrCreateMaterial(RoomPreviewMaterialPath, "Universal Render Pipeline/Unlit");
+            Color hologramGreen = new Color(0.05f, 3.6f, 0.45f, 0.92f);
+            SetColor(material, "_BaseColor", hologramGreen);
+            SetColor(material, "_Color", hologramGreen);
+            SetFloat(material, "_Surface", 1f);
+            SetFloat(material, "_Blend", 1f);
+            SetFloat(material, "_Cull", (float)CullMode.Off);
+            SetFloat(material, "_AlphaClip", 0f);
+            SetFloat(material, "_SrcBlend", (float)BlendMode.SrcAlpha);
+            SetFloat(material, "_DstBlend", (float)BlendMode.One);
+            SetFloat(material, "_ZWrite", 0f);
+            material.SetOverrideTag("RenderType", "Transparent");
+            material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            material.DisableKeyword("_ALPHATEST_ON");
+            material.renderQueue = (int)RenderQueue.Transparent + 100;
+            material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
+            EditorUtility.SetDirty(material);
+            return material;
+        }
+
         private static Material CreateLitMaterial(string path, Color color, float smoothness)
         {
             Material material = LoadOrCreateMaterial(path, "Universal Render Pipeline/Lit");
@@ -775,7 +799,12 @@ namespace WhatLightRemains.Editor
             }
         }
 
-        private static GameObject CreatePlayerPrefab(InputActionAsset inputActions, Material hand, Material tool, LayerIds layers)
+        private static GameObject CreatePlayerPrefab(
+            InputActionAsset inputActions,
+            Material hand,
+            Material tool,
+            Material roomPreview,
+            LayerIds layers)
         {
             GameObject root = new GameObject("Player");
             try
@@ -793,6 +822,7 @@ namespace WhatLightRemains.Editor
                 PlayerRoomTracker tracker = root.AddComponent<PlayerRoomTracker>();
                 FirstPersonMotor motor = root.AddComponent<FirstPersonMotor>();
                 PlayerLook look = root.AddComponent<PlayerLook>();
+                RoomCreationController roomCreation = root.AddComponent<RoomCreationController>();
                 input.Configure(inputActions);
                 motor.Configure(controller, input, tracker);
 
@@ -846,6 +876,7 @@ namespace WhatLightRemains.Editor
 
                 look.Configure(input, root.transform, pitch, mainCamera);
                 look.FieldOfView = 75f;
+                roomCreation.Configure(input, tracker, look, mainCamera, roomPreview);
                 return PrefabUtility.SaveAsPrefabAsset(root, PlayerPrefabPath);
             }
             finally
@@ -856,7 +887,11 @@ namespace WhatLightRemains.Editor
 
         private static GameObject CreateHotbarPrefab(Sprite toolIcon)
         {
-            GameObject root = new GameObject("Hotbar", typeof(HotbarView), typeof(GlassOpacityControl));
+            GameObject root = new GameObject(
+                "Hotbar",
+                typeof(HotbarView),
+                typeof(GlassOpacityControl),
+                typeof(RoomCreationPromptView));
             try
             {
                 root.transform.localScale = Vector3.one;
@@ -913,6 +948,23 @@ namespace WhatLightRemains.Editor
                 iconImage.sprite = toolIcon;
                 iconImage.preserveAspect = true;
                 template.SetActive(false);
+
+                Text creationInstruction = CreateUiText(
+                    "Room Creation Instruction",
+                    canvasObject.transform,
+                    RoomCreationPromptView.NormalText,
+                    20,
+                    TextAnchor.LowerLeft);
+                RectTransform instructionRect = creationInstruction.rectTransform;
+                instructionRect.anchorMin = Vector2.zero;
+                instructionRect.anchorMax = Vector2.zero;
+                instructionRect.pivot = Vector2.zero;
+                instructionRect.anchoredPosition = new Vector2(28f, 26f);
+                instructionRect.sizeDelta = new Vector2(440f, 44f);
+                Outline instructionOutline = creationInstruction.gameObject.AddComponent<Outline>();
+                instructionOutline.effectColor = new Color(0f, 0f, 0f, 0.92f);
+                instructionOutline.effectDistance = new Vector2(2f, -2f);
+                root.GetComponent<RoomCreationPromptView>().Configure(creationInstruction);
 
                 GameObject glassPanel = CreateUiImage(
                     "Glass Opacity Panel",
@@ -1016,12 +1068,15 @@ namespace WhatLightRemains.Editor
             room.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
 
             CubeRoomClusterGenerator cluster = clusterRoot.AddComponent<CubeRoomClusterGenerator>();
-            cluster.Configure(room, cubePrefab.GetComponent<CubeRoom>(), CubeRoomClusterGenerator.DefaultAdditionalRoomCount);
+            cluster.Configure(room, cubePrefab.GetComponent<CubeRoom>(), 0);
 
             PlayerRoomTracker tracker = InstantiatePrefab<PlayerRoomTracker>(playerPrefab);
             tracker.transform.SetPositionAndRotation(new Vector3(0f, 0.06f, 0f), Quaternion.Euler(0f, 45f, 0f));
             tracker.Initialize(cluster.PrimaryRoom);
-            PrefabUtility.InstantiatePrefab(hotbarPrefab);
+            GameObject hotbar = (GameObject)PrefabUtility.InstantiatePrefab(hotbarPrefab);
+            tracker.GetComponent<RoomCreationController>().Initialize(
+                cluster,
+                hotbar.GetComponent<RoomCreationPromptView>());
             EditorSceneManager.SaveScene(scene, FoundationScenePath);
         }
 
@@ -1483,7 +1538,9 @@ namespace WhatLightRemains.Editor
                 { ""name"": ""Look"", ""type"": ""Value"", ""id"": ""e2f84b39-d0cb-42fd-8d65-5d5c1b541c5c"", ""expectedControlType"": ""Vector2"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": true },
                 { ""name"": ""Jump"", ""type"": ""Button"", ""id"": ""1fd455b7-9d8c-477b-9ea8-4584bd57f3fa"", ""expectedControlType"": ""Button"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": false },
                 { ""name"": ""ReleaseCursor"", ""type"": ""Button"", ""id"": ""b75f8437-030b-4f69-a654-0ef177ac9fb1"", ""expectedControlType"": ""Button"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": false },
-                { ""name"": ""CaptureCursor"", ""type"": ""Button"", ""id"": ""f3525105-cb20-4cd8-bf43-ef95eb8ee037"", ""expectedControlType"": ""Button"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": false }
+                { ""name"": ""CaptureCursor"", ""type"": ""Button"", ""id"": ""f3525105-cb20-4cd8-bf43-ef95eb8ee037"", ""expectedControlType"": ""Button"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": false },
+                { ""name"": ""ToggleCreate"", ""type"": ""Button"", ""id"": ""fe1131a6-5d0b-4c84-b97b-110f5f2a77ac"", ""expectedControlType"": ""Button"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": false },
+                { ""name"": ""PlaceRoom"", ""type"": ""Button"", ""id"": ""48ba252b-3562-44d1-936c-88f433ab2d51"", ""expectedControlType"": ""Button"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": false }
             ],
             ""bindings"": [
                 { ""name"": ""WASD"", ""id"": ""547d0149-dfbb-4be4-b147-475b0ceaa247"", ""path"": ""2DVector"", ""interactions"": """", ""processors"": """", ""groups"": """", ""action"": ""Move"", ""isComposite"": true, ""isPartOfComposite"": false },
@@ -1494,7 +1551,9 @@ namespace WhatLightRemains.Editor
                 { ""name"": """", ""id"": ""cda9e182-3d11-41a6-a562-d080ce5c6664"", ""path"": ""<Mouse>/delta"", ""interactions"": """", ""processors"": """", ""groups"": """", ""action"": ""Look"", ""isComposite"": false, ""isPartOfComposite"": false },
                 { ""name"": """", ""id"": ""0a60c9ac-b0db-4c52-8d68-d80e48979076"", ""path"": ""<Keyboard>/space"", ""interactions"": """", ""processors"": """", ""groups"": """", ""action"": ""Jump"", ""isComposite"": false, ""isPartOfComposite"": false },
                 { ""name"": """", ""id"": ""27d14848-d21b-4275-9b98-05ca76289f74"", ""path"": ""<Keyboard>/escape"", ""interactions"": """", ""processors"": """", ""groups"": """", ""action"": ""ReleaseCursor"", ""isComposite"": false, ""isPartOfComposite"": false },
-                { ""name"": """", ""id"": ""7eb4af7e-76e6-4b7a-bd29-b6fa98d1b3be"", ""path"": ""<Mouse>/leftButton"", ""interactions"": """", ""processors"": """", ""groups"": """", ""action"": ""CaptureCursor"", ""isComposite"": false, ""isPartOfComposite"": false }
+                { ""name"": """", ""id"": ""7eb4af7e-76e6-4b7a-bd29-b6fa98d1b3be"", ""path"": ""<Mouse>/leftButton"", ""interactions"": """", ""processors"": """", ""groups"": """", ""action"": ""CaptureCursor"", ""isComposite"": false, ""isPartOfComposite"": false },
+                { ""name"": """", ""id"": ""6328840f-0870-4f0f-9024-1e0a246302a4"", ""path"": ""<Keyboard>/c"", ""interactions"": ""Press"", ""processors"": """", ""groups"": """", ""action"": ""ToggleCreate"", ""isComposite"": false, ""isPartOfComposite"": false },
+                { ""name"": """", ""id"": ""0d660884-6f90-4f75-8d97-dd5df83e3faa"", ""path"": ""<Mouse>/leftButton"", ""interactions"": ""Press"", ""processors"": """", ""groups"": """", ""action"": ""PlaceRoom"", ""isComposite"": false, ""isPartOfComposite"": false }
             ]
         }
     ],

@@ -191,8 +191,11 @@ namespace WhatLightRemains.Tests
         [UnityTest]
         public IEnumerator ConnectedDoorway_AllowsTraversalAndUpdatesCurrentRoom()
         {
-            Assert.That(generator.Rooms, Has.Count.GreaterThanOrEqualTo(2));
-            CubeRoom destination = generator.Rooms[1];
+            Assert.That(
+                generator.TryPlaceRoom(room, CubeRoomWall.East, out CubeRoom destination),
+                Is.True,
+                "The movement fixture must be able to add its own connected room now that gameplay starts with only the primary room.");
+            Physics.SyncTransforms();
             Vector2Int gridDirection = generator.GridCells[1] - generator.GridCells[0];
             Assert.That(Mathf.Abs(gridDirection.x) + Mathf.Abs(gridDirection.y), Is.EqualTo(1));
             Assert.That(room.HasDoorway(WallFacing(gridDirection)), Is.True);

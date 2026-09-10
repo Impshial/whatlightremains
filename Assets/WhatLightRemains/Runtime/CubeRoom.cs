@@ -10,6 +10,14 @@ namespace WhatLightRemains.Runtime
         North = 3,
     }
 
+    public enum CubeRoomWallAnchor
+    {
+        LowerFirst = 0,
+        LowerSecond = 1,
+        UpperFirst = 2,
+        UpperSecond = 3,
+    }
+
     [DisallowMultipleComponent]
     public sealed class CubeRoom : MonoBehaviour
     {
@@ -18,6 +26,7 @@ namespace WhatLightRemains.Runtime
         public const float InteriorDepth = 8f;
         public const float DoorwayWidth = 2f;
         public const float DoorwayHeight = 2.4f;
+        public const float AnchorAlignmentTolerance = 0.001f;
 
         [SerializeField, Min(0f)] private float gravityStrength = 9.81f;
         [SerializeField] private CubeRoomLighting lighting;
@@ -25,6 +34,7 @@ namespace WhatLightRemains.Runtime
         [SerializeField] private Renderer[] wallGlassRenderers = new Renderer[4];
         [SerializeField] private Collider[] wallBoundaryColliders = new Collider[4];
         [SerializeField] private CubeRoomWallBoundary[] wallBoundaries = new CubeRoomWallBoundary[4];
+        [SerializeField, HideInInspector] private CubeRoom[] connectedRooms = new CubeRoom[4];
 
         public float GravityStrength
         {
@@ -106,8 +116,32 @@ namespace WhatLightRemains.Runtime
             return boundary != null && boundary.HasDoorway;
         }
 
+        public CubeRoom GetConnectedRoom(CubeRoomWall wall)
+        {
+            int index = (int)wall;
+            if (connectedRooms == null || index < 0 || index >= connectedRooms.Length)
+            {
+                return null;
+            }
+
+            return connectedRooms[index];
+        }
+
+        public void SetWallConnection(CubeRoomWall wall, CubeRoom neighbor, bool ownsSharedBoundary)
+        {
+            EnsureConnectionArray();
+            connectedRooms[(int)wall] = neighbor;
+            SetWallConnection(wall, neighbor != null, ownsSharedBoundary);
+        }
+
         public void SetWallConnection(CubeRoomWall wall, bool connected, bool ownsSharedBoundary)
         {
+            EnsureConnectionArray();
+            if (!connected)
+            {
+                connectedRooms[(int)wall] = null;
+            }
+
             CubeRoomWallBoundary boundary = GetWallBoundary(wall);
             if (boundary != null)
             {
@@ -134,7 +168,75 @@ namespace WhatLightRemains.Runtime
                 {
                     SetLegacyWallEnabled((CubeRoomWall)index, true);
                 }
+
+                EnsureConnectionArray();
+                connectedRooms[index] = null;
             }
+        }
+
+        public Vector3 GetWallAnchorLocal(CubeRoomWall wall, CubeRoomWallAnchor anchor)
+        {
+            bool upper = anchor == CubeRoomWallAnchor.UpperFirst
+                || anchor == CubeRoomWallAnchor.UpperSecond;
+            bool second = anchor == CubeRoomWallAnchor.LowerSecond
+                || anchor == CubeRoomWallAnchor.UpperSecond;
+            float height = upper ? InteriorHeight : 0f;
+            float along = second ? InteriorWidth * 0.5f : -InteriorWidth * 0.5f;
+
+            return wall switch
+            {
+                CubeRoomWall.West => new Vector3(-InteriorWidth * 0.5f, height, along),
+                CubeRoomWall.East => new Vector3(InteriorWidth * 0.5f, height, along),
+                CubeRoomWall.South => new Vector3(along, height, -InteriorDepth * 0.5f),
+                CubeRoomWall.North => new Vector3(along, height, InteriorDepth * 0.5f),
+                _ => throw new System.ArgumentOutOfRangeException(nameof(wall), wall, null),
+            };
+        }
+
+        public Vector3 GetWallAnchorWorld(CubeRoomWall wall, CubeRoomWallAnchor anchor)
+        {
+            return transform.TransformPoint(GetWallAnchorLocal(wall, anchor));
+        }
+
+        public Vector3 GetWallNormalWorld(CubeRoomWall wall)
+        {
+            return transform.TransformDirection(GetWallNormalLocal(wall));
+        }
+
+        public static Vector3 GetWallNormalLocal(CubeRoomWall wall)
+        {
+            return wall switch
+            {
+                CubeRoomWall.West => Vector3.left,
+                CubeRoomWall.East => Vector3.right,
+                CubeRoomWall.South => Vector3.back,
+                CubeRoomWall.North => Vector3.forward,
+                _ => throw new System.ArgumentOutOfRangeException(nameof(wall), wall, null),
+            };
+        }
+
+        public static Vector2Int GetGridDirection(CubeRoomWall wall)
+        {
+            return wall switch
+            {
+                CubeRoomWall.West => Vector2Int.left,
+                CubeRoomWall.East => Vector2Int.right,
+                CubeRoomWall.South => Vector2Int.down,
+                CubeRoomWall.North => Vector2Int.up,
+                _ => throw new System.ArgumentOutOfRangeException(nameof(wall), wall, null),
+            };
+        }
+
+        public static CubeRoomWall GetOppositeWall(CubeRoomWall wall)
+        {
+            return wall switch
+            {
+                CubeRoomWall.West => CubeRoomWall.East,
+                CubeRoomWall.East => CubeRoomWall.West,
+                CubeRoomWall.South => CubeRoomWall.North,
+                CubeRoomWall.North => CubeRoomWall.South,
+                _ => throw new System.ArgumentOutOfRangeException(nameof(wall), wall, null),
+            };
         }
 
         public Renderer GetWallGlassRenderer(CubeRoomWall wall)
@@ -247,6 +349,7 @@ namespace WhatLightRemains.Runtime
             wallGlassRenderers ??= new Renderer[4];
             wallBoundaryColliders ??= new Collider[4];
             wallBoundaries ??= new CubeRoomWallBoundary[4];
+            EnsureConnectionArray();
 
             if (lighting == null)
             {
@@ -328,6 +431,42 @@ namespace WhatLightRemains.Runtime
             {
                 wallCollider.enabled = enabled;
             }
+        }
+
+        private void EnsureConnectionArray()
+        {
+            if (connectedRooms == null || connectedRooms.Length != 4)
+            {
+                connectedRooms = new CubeRoom[4];
+            }
+        }
+
+        private void OnDrawGizmosSelected()
+        {
+            Color previousColor = Gizmos.color;
+            Matrix4x4 previousMatrix = Gizmos.matrix;
+            Gizmos.matrix = transform.localToWorldMatrix;
+
+            for (int wallIndex = 0; wallIndex < 4; wallIndex++)
+            {
+                CubeRoomWall wall = (CubeRoomWall)wallIndex;
+                Gizmos.color = HasDoorway(wall)
+                    ? new Color(0.20f, 0.70f, 1f, 0.9f)
+                    : new Color(0.20f, 1f, 0.42f, 0.9f);
+                for (int anchorIndex = 0; anchorIndex < 4; anchorIndex++)
+                {
+                    Gizmos.DrawSphere(
+                        GetWallAnchorLocal(wall, (CubeRoomWallAnchor)anchorIndex),
+                        0.09f);
+                }
+
+                Vector3 center = GetWallNormalLocal(wall) * (InteriorWidth * 0.5f)
+                    + Vector3.up * (InteriorHeight * 0.5f);
+                Gizmos.DrawLine(center, center + GetWallNormalLocal(wall) * 0.65f);
+            }
+
+            Gizmos.matrix = previousMatrix;
+            Gizmos.color = previousColor;
         }
     }
 }

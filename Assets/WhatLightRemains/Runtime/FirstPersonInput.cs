@@ -14,6 +14,8 @@ namespace WhatLightRemains.Runtime
         private InputAction jumpAction;
         private InputAction releaseCursorAction;
         private InputAction captureCursorAction;
+        private InputAction toggleCreateAction;
+        private InputAction placeRoomAction;
 
         public InputActionAsset Actions => inputActions;
         public Vector2 Move => moveAction != null ? moveAction.ReadValue<Vector2>() : Vector2.zero;
@@ -21,6 +23,8 @@ namespace WhatLightRemains.Runtime
         public bool JumpPressedThisFrame => jumpAction != null && jumpAction.WasPressedThisFrame();
         public bool ReleaseCursorPressedThisFrame => releaseCursorAction != null && releaseCursorAction.WasPressedThisFrame();
         public bool CaptureCursorPressedThisFrame => captureCursorAction != null && captureCursorAction.WasPressedThisFrame();
+        public bool ToggleCreatePressedThisFrame => toggleCreateAction != null && toggleCreateAction.WasPressedThisFrame();
+        public bool PlaceRoomPressedThisFrame => placeRoomAction != null && placeRoomAction.WasPressedThisFrame();
 
         public void Configure(InputActionAsset actions)
         {
@@ -59,6 +63,8 @@ namespace WhatLightRemains.Runtime
             jumpAction = FindAction(runtimeActions, "Player/Jump", "Gameplay/Jump", "Jump");
             releaseCursorAction = FindAction(runtimeActions, "Player/ReleaseCursor", "Gameplay/ReleaseCursor", "ReleaseCursor");
             captureCursorAction = FindAction(runtimeActions, "Player/CaptureCursor", "Gameplay/CaptureCursor", "CaptureCursor");
+            toggleCreateAction = FindAction(runtimeActions, "Player/ToggleCreate", "Gameplay/ToggleCreate", "ToggleCreate");
+            placeRoomAction = FindAction(runtimeActions, "Player/PlaceRoom", "Gameplay/PlaceRoom", "PlaceRoom");
             runtimeActions.Enable();
         }
 
@@ -76,6 +82,8 @@ namespace WhatLightRemains.Runtime
             jumpAction = null;
             releaseCursorAction = null;
             captureCursorAction = null;
+            toggleCreateAction = null;
+            placeRoomAction = null;
         }
 
         private static InputAction FindAction(InputActionAsset asset, params string[] candidates)
