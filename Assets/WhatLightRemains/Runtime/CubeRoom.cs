@@ -170,9 +170,11 @@ namespace WhatLightRemains.Runtime
                 CubeRoomWallBoundary boundary = GetWallBoundary(wall);
                 if (boundary != null)
                 {
+                    bool isConnected = neighbor != null && passageKind != RoomPassageKind.None;
                     boundary.SetConnectionState(
-                        neighbor != null && passageKind != RoomPassageKind.Sealed,
-                        ownsSharedBoundary);
+                        isConnected && passageKind != RoomPassageKind.Sealed,
+                        ownsSharedBoundary,
+                        isConnected);
                 }
                 else
                 {

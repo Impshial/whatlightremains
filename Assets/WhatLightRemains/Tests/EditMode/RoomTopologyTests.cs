@@ -110,10 +110,70 @@ namespace WhatLightRemains.Tests
         }
 
         [Test]
-        public void SideCandidate_WithMisalignedFloorAperturesIsRejected()
+        public void SideCandidate_WithCeilingFacingSourceCreatesTraversablePassage()
         {
             RoomOrientation tilted = RoomOrientation.Identity.RotateAroundGridAxis(new Vector3Int(0, 0, 1), 1);
-            Assert.That(layout.TryGetPlacementCandidate(layout.PrimaryRoom, CubeRoomFace.East, tilted, out _), Is.False);
+            Assert.That(layout.TryGetPlacementCandidate(layout.PrimaryRoom, CubeRoomFace.East,
+                tilted, out RoomPlacementCandidate candidate), Is.True);
+            Assert.That(candidate.MatingFace, Is.EqualTo(CubeRoomFace.Ceiling));
+            Assert.That(candidate.PassageKind, Is.EqualTo(RoomPassageKind.CeilingToSideDoorway));
+            Assert.That(candidate.CeilingEdge, Is.Not.EqualTo(RoomCeilingEdge.None));
+            Assert.That(layout.AnchorsAlign(candidate), Is.True);
+
+            Assert.That(layout.TryPlaceRoom(candidate, out CubeRoom placed), Is.True);
+            Assert.That(layout.PrimaryRoom.GetConnection(CubeRoomFace.East).IsTraversable, Is.True);
+            Assert.That(placed.GetConnection(CubeRoomFace.Ceiling).IsTraversable, Is.True);
+            Assert.That(placed.CeilingBoundary.HasPassage, Is.True);
+        }
+
+        [Test]
+        public void EverySideTarget_KeepsGhostCandidateValidThroughAllZQuarterTurns()
+        {
+            foreach (CubeRoomWall wall in System.Enum.GetValues(typeof(CubeRoomWall)))
+            {
+                for (int turns = 0; turns < 4; turns++)
+                {
+                    RoomOrientation orientation = RoomOrientation.Identity.RotateAroundGridAxis(
+                        new Vector3Int(0, 0, 1), turns);
+                    Assert.That(layout.TryGetPlacementCandidate(layout.PrimaryRoom, CubeRoom.ToFace(wall),
+                        orientation, out RoomPlacementCandidate candidate), Is.True,
+                        $"{wall} lost its placement candidate after {turns * 90} degrees of Z rotation.");
+                    Assert.That(candidate.IsValid, Is.True);
+                    Assert.That(layout.AnchorsAlign(candidate), Is.True);
+                }
+            }
+        }
+
+        [Test]
+        public void SideCandidate_WithFloorFacingSourceRemainsVisibleAndSealed()
+        {
+            RoomOrientation tilted = RoomOrientation.Identity.RotateAroundGridAxis(new Vector3Int(0, 0, 1), -1);
+            Assert.That(layout.TryGetPlacementCandidate(layout.PrimaryRoom, CubeRoomFace.East,
+                tilted, out RoomPlacementCandidate candidate), Is.True);
+            Assert.That(candidate.MatingFace, Is.EqualTo(CubeRoomFace.Floor));
+            Assert.That(candidate.PassageKind, Is.EqualTo(RoomPassageKind.Sealed));
+            Assert.That(layout.AnchorsAlign(candidate), Is.True);
+
+            Assert.That(layout.TryPlaceRoom(candidate, out CubeRoom placed), Is.True);
+            Assert.That(layout.PrimaryRoom.GetConnection(CubeRoomFace.East).IsConnected, Is.True);
+            Assert.That(layout.PrimaryRoom.GetConnection(CubeRoomFace.East).IsTraversable, Is.False);
+            Assert.That(layout.PrimaryRoom.GetWallBoundary(CubeRoomWall.East).OwnsBoundary, Is.False,
+                "The candidate floor owns this sealed shared face, so the source glass wall must not overlap it.");
+            Assert.That(placed.GetConnection(CubeRoomFace.Floor).IsTraversable, Is.False);
+        }
+
+        [Test]
+        public void SideCandidate_WithOpposedUpDirectionsRemainsVisibleAndSealed()
+        {
+            RoomOrientation inverted = RoomOrientation.Identity.RotateAroundGridAxis(new Vector3Int(0, 0, 1), 2);
+            Assert.That(layout.TryGetPlacementCandidate(layout.PrimaryRoom, CubeRoomFace.East,
+                inverted, out RoomPlacementCandidate candidate), Is.True);
+            Assert.That(candidate.MatingFace, Is.EqualTo(CubeRoomFace.East));
+            Assert.That(candidate.PassageKind, Is.EqualTo(RoomPassageKind.Sealed));
+
+            Assert.That(layout.TryPlaceRoom(candidate, out CubeRoom placed), Is.True);
+            Assert.That(layout.PrimaryRoom.GetWallBoundary(CubeRoomWall.East).OwnsBoundary, Is.True);
+            Assert.That(placed.GetWallBoundary(CubeRoomWall.East).OwnsBoundary, Is.False);
         }
 
         [Test]

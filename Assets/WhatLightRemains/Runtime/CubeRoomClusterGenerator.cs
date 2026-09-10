@@ -153,10 +153,6 @@ namespace WhatLightRemains.Runtime
             Vector3Int targetCell = sourceCell + sourceDirection;
             if (roomByCell.ContainsKey(targetCell)) return false;
             CubeRoomFace matingFace = FaceInGridDirection(orientation, -sourceDirection);
-            // Ceiling-to-side passages are deliberately initiated from the lower room's
-            // ceiling. A side-wall target must keep both doorway floors aligned and may
-            // therefore connect only to another side face.
-            if (IsSide(sourceFace) && !IsSide(matingFace)) return false;
             if (!TryClassifyPassage(sourceFace, sourceOrientation, matingFace, orientation, out RoomPassageKind primaryPassage)) return false;
             if (!TryBuildConnectionPlan(targetCell, orientation, sourceRoom, sourceFace, out RoomConnectionPlan[] plans)) return false;
             RoomConnectionPlan primaryPlan = plans.FirstOrDefault(plan => plan.Neighbor == sourceRoom);
@@ -401,22 +397,26 @@ namespace WhatLightRemains.Runtime
         private static bool TryClassifyPassage(CubeRoomFace firstFace, RoomOrientation firstOrientation,
             CubeRoomFace secondFace, RoomOrientation secondOrientation, out RoomPassageKind passage)
         {
-            passage = RoomPassageKind.None;
             if (IsSide(firstFace) && IsSide(secondFace))
             {
-                if (firstOrientation.Up != secondOrientation.Up) return false;
-                passage = RoomPassageKind.SideDoorway; return true;
+                // Floor-level side doorways line up only when both rooms agree on up.
+                // Other cardinal orientations still form a valid neighboring cell, but
+                // their shared face must remain sealed.
+                passage = firstOrientation.Up == secondOrientation.Up
+                    ? RoomPassageKind.SideDoorway
+                    : RoomPassageKind.Sealed;
+                return true;
             }
             if ((firstFace == CubeRoomFace.Ceiling && IsSide(secondFace)) || (secondFace == CubeRoomFace.Ceiling && IsSide(firstFace)))
             {
                 passage = RoomPassageKind.CeilingToSideDoorway; return true;
             }
-            if ((firstFace == CubeRoomFace.Ceiling && (secondFace == CubeRoomFace.Floor || secondFace == CubeRoomFace.Ceiling))
-                || (secondFace == CubeRoomFace.Ceiling && (firstFace == CubeRoomFace.Floor || firstFace == CubeRoomFace.Ceiling)))
-            {
-                passage = RoomPassageKind.Sealed; return true;
-            }
-            return false;
+
+            // Every other cardinal full-face contact is geometrically valid but has no
+            // compatible doorway implementation. Keeping it sealed lets all four Z-axis
+            // preview orientations remain visible and placeable beside an existing room.
+            passage = RoomPassageKind.Sealed;
+            return true;
         }
 
         private static RoomCeilingEdge GetCeilingEdge(CubeRoomFace firstFace, RoomOrientation firstOrientation,

@@ -527,6 +527,10 @@ namespace WhatLightRemains.Editor
             SetFloat(material, "_SrcBlend", (float)BlendMode.SrcAlpha);
             SetFloat(material, "_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
             SetFloat(material, "_ZWrite", 0f);
+            // URP rebuilds a transparent material's render queue from this property
+            // when it imports the asset. Keep it in sync with the explicit queue so
+            // the ghost remains ordered after the room glass across editor reloads.
+            SetFloat(material, "_QueueOffset", 100f);
             material.SetOverrideTag("RenderType", "Transparent");
             material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
             material.DisableKeyword("_ALPHATEST_ON");

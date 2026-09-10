@@ -34,7 +34,7 @@ The bottom-center Create-mode hint shows `Hold Ctrl to Rotate`, changes to the a
 
 The primary room is the only room present at startup. In Create mode:
 
-- Side placement is valid only when the source and candidate floor directions align. A valid shared side receives reciprocal centered 2 m × 2.4 m floor-level doorways.
+- Side placement supports every cardinal room orientation. Aligned floors receive reciprocal centered 2 m × 2.4 m floor-level doorways; a candidate ceiling facing the source side receives the ceiling-to-side passage, while incompatible floor or side pairings remain sealed.
 - The ceiling is a valid placement surface; the floor is not.
 - An upright room placed above another room remains sealed because neither room has a traversable floor opening.
 - A room whose side faces downward receives a normal side doorway. The lower room receives the matching edge-aligned 2 m × 2.4 m ceiling opening and a non-solid ladder.

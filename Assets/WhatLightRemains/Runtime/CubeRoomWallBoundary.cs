@@ -21,10 +21,12 @@ namespace WhatLightRemains.Runtime
         [SerializeField] private Renderer[] doorwayBaseTrimRenderers = Array.Empty<Renderer>();
         [SerializeField] private Collider closedCollider;
         [SerializeField] private Collider[] doorwayColliders = Array.Empty<Collider>();
+        [SerializeField, HideInInspector] private bool connected;
         [SerializeField, HideInInspector] private bool hasDoorway;
         [SerializeField, HideInInspector] private bool ownsBoundary = true;
 
         public CubeRoomWall Wall => wall;
+        public bool IsConnected => connected;
         public bool HasDoorway => hasDoorway;
         public bool OwnsBoundary => ownsBoundary;
         public Renderer ClosedGlassRenderer => closedGlassRenderer;
@@ -82,14 +84,25 @@ namespace WhatLightRemains.Runtime
         /// </summary>
         public void SetConnectionState(bool connected, bool ownsSharedBoundary)
         {
-            hasDoorway = connected;
-            ownsBoundary = !connected || ownsSharedBoundary;
+            SetConnectionState(connected, ownsSharedBoundary, connected);
+        }
+
+        /// <summary>
+        /// Applies a shared-face state where a neighbor may exist without a traversable
+        /// doorway. This lets rotated adjacent rooms share exactly one sealed boundary.
+        /// </summary>
+        public void SetConnectionState(bool newHasDoorway, bool ownsSharedBoundary, bool hasNeighbor)
+        {
+            connected = hasNeighbor;
+            hasDoorway = newHasDoorway;
+            ownsBoundary = !hasNeighbor || ownsSharedBoundary;
             ApplyState();
             NotifyStateChanged();
         }
 
         public void ResetConnectionState()
         {
+            connected = false;
             hasDoorway = false;
             ownsBoundary = true;
             ApplyState();
@@ -167,7 +180,7 @@ namespace WhatLightRemains.Runtime
             doorwayFrameRenderers ??= Array.Empty<Renderer>();
             doorwayBaseTrimRenderers ??= Array.Empty<Renderer>();
             doorwayColliders ??= Array.Empty<Collider>();
-            if (!hasDoorway)
+            if (!connected)
             {
                 ownsBoundary = true;
             }
