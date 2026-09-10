@@ -517,15 +517,15 @@ namespace WhatLightRemains.Editor
         private static Material CreateRoomPreviewMaterial()
         {
             Material material = LoadOrCreateMaterial(RoomPreviewMaterialPath, "Universal Render Pipeline/Unlit");
-            Color hologramGreen = new Color(0.05f, 3.6f, 0.45f, 0.92f);
+            Color hologramGreen = new Color(0.04f, 2.2f, 0.32f, 0.28f);
             SetColor(material, "_BaseColor", hologramGreen);
             SetColor(material, "_Color", hologramGreen);
             SetFloat(material, "_Surface", 1f);
-            SetFloat(material, "_Blend", 1f);
+            SetFloat(material, "_Blend", 0f);
             SetFloat(material, "_Cull", (float)CullMode.Off);
             SetFloat(material, "_AlphaClip", 0f);
             SetFloat(material, "_SrcBlend", (float)BlendMode.SrcAlpha);
-            SetFloat(material, "_DstBlend", (float)BlendMode.One);
+            SetFloat(material, "_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
             SetFloat(material, "_ZWrite", 0f);
             material.SetOverrideTag("RenderType", "Transparent");
             material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");

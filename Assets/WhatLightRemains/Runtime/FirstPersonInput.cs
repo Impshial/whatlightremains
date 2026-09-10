@@ -21,8 +21,10 @@ namespace WhatLightRemains.Runtime
         private InputAction alternateRotationAxisAction;
         private InputAction rotationScrollAction;
 
-        [SerializeField, Min(0.01f)] private float mouseWheelStepSize = 120f;
-        private float accumulatedRotationScroll;
+        // Input System 1.20 normalizes wheel deltas to roughly -1..1 by default. Older
+        // platform-specific input (notably Windows) can still report +/-120, so rotation
+        // must be based on direction rather than assuming either magnitude.
+        [SerializeField, Range(0f, 0.5f)] private float mouseWheelDeadZone = 0.01f;
 
         public InputActionAsset Actions => inputActions;
         public Vector2 Move => moveAction != null ? moveAction.ReadValue<Vector2>() : Vector2.zero;
@@ -37,36 +39,34 @@ namespace WhatLightRemains.Runtime
         public bool AlternateRotationAxisHeld => IsPressed(alternateRotationAxisAction) || IsAltPressed();
 
         /// <summary>
-        /// Consumes whole wheel detents while retaining fractional high-resolution wheel input.
-        /// Scroll input that occurs without Ctrl is deliberately discarded so it cannot cause a
-        /// delayed rotation the next time Create-mode rotation is entered.
+        /// Converts the current frame's wheel delta into one discrete quarter-turn. Input System
+        /// may report a wheel tick as either +/-1 or +/-120 depending on its scroll-delta setting;
+        /// treating the value as a direction makes both configurations behave identically.
         /// </summary>
         public int ConsumeRotationScrollSteps()
         {
             if (!RotateModifierHeld)
             {
-                accumulatedRotationScroll = 0f;
                 return 0;
             }
 
-            float scroll = ReadRotationScroll();
-            if (Mathf.Approximately(scroll, 0f))
-            {
-                return 0;
-            }
-
-            accumulatedRotationScroll += scroll;
-            float stepSize = Mathf.Max(0.01f, mouseWheelStepSize);
-            int steps = accumulatedRotationScroll >= 0f
-                ? Mathf.FloorToInt(accumulatedRotationScroll / stepSize)
-                : Mathf.CeilToInt(accumulatedRotationScroll / stepSize);
-            accumulatedRotationScroll -= steps * stepSize;
-            return steps;
+            return ConvertRotationScrollDelta(ReadRotationScroll(), mouseWheelDeadZone);
         }
 
         public void ClearRotationScroll()
         {
-            accumulatedRotationScroll = 0f;
+            // Mouse scroll is a delta control and resets every input update. This method remains
+            // as an explicit mode-transition hook and for compatibility with existing callers.
+        }
+
+        public static int ConvertRotationScrollDelta(float scrollDelta, float deadZone = 0.01f)
+        {
+            if (float.IsNaN(scrollDelta) || Mathf.Abs(scrollDelta) <= Mathf.Max(0f, deadZone))
+            {
+                return 0;
+            }
+
+            return scrollDelta > 0f ? 1 : -1;
         }
 
         public void Configure(InputActionAsset actions)
@@ -135,7 +135,6 @@ namespace WhatLightRemains.Runtime
             rotateModifierAction = null;
             alternateRotationAxisAction = null;
             rotationScrollAction = null;
-            accumulatedRotationScroll = 0f;
         }
 
         private float ReadRotationScroll()

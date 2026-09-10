@@ -741,7 +741,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: WhatLightRemains.Runtime::WhatLightRemains.Runtime.FirstPersonInput
   inputActions: {fileID: -944628639613478452, guid: fc746019d8563dc46ba4e6c82fcdde65, type: 3}
-  mouseWheelStepSize: 120
+  mouseWheelDeadZone: 0.01
 --- !u!114 &4093413171902578324
 MonoBehaviour:
   m_ObjectHideFlags: 0

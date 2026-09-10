@@ -38,12 +38,13 @@ namespace WhatLightRemains.Runtime
             if (material == null) throw new ArgumentNullException(nameof(material));
             GameObject root = new GameObject("Room Creation Ghost");
             RoomGhostPreview preview = new RoomGhostPreview(root, prefab);
-            Material bodyMaterial = preview.CreateOpacityVariant(material, "Ghost Body", 0.22f);
+            Material bodyMaterial = preview.CreateOpacityVariant(material, "Ghost Body", 0.10f);
             Material floorMaterial = preview.CreateFilledFloorMaterial(material);
+            Material glassMaterial = preview.CreateGlassMaterial(material);
             Material accentMaterial = preview.CreateAccentMaterial(material);
             if (prefab != null)
             {
-                preview.CopyVisualHierarchy(prefab.transform, root.transform, bodyMaterial, floorMaterial);
+                preview.CopyVisualHierarchy(prefab.transform, root.transform, bodyMaterial, floorMaterial, glassMaterial);
             }
 
             preview.CreateOutline(accentMaterial);
@@ -81,7 +82,12 @@ namespace WhatLightRemains.Runtime
             objectCopies.Clear();
         }
 
-        private void CopyVisualHierarchy(Transform source, Transform parent, Material material, Material floorMaterial)
+        private void CopyVisualHierarchy(
+            Transform source,
+            Transform parent,
+            Material bodyMaterial,
+            Material floorMaterial,
+            Material glassMaterial)
         {
             for (int index = 0; index < source.childCount; index++)
             {
@@ -92,8 +98,11 @@ namespace WhatLightRemains.Runtime
                 copy.transform.localRotation = sourceChild.localRotation;
                 copy.transform.localScale = sourceChild.localScale;
                 objectCopies[sourceChild.gameObject] = copy;
-                CopyRenderer(sourceChild, copy, IsFloorVisual(sourceChild) ? floorMaterial : material);
-                CopyVisualHierarchy(sourceChild, copy.transform, material, floorMaterial);
+                Material material = IsGlassVisual(sourceChild)
+                    ? glassMaterial
+                    : IsFloorVisual(sourceChild) ? floorMaterial : bodyMaterial;
+                CopyRenderer(sourceChild, copy, material);
+                CopyVisualHierarchy(sourceChild, copy.transform, bodyMaterial, floorMaterial, glassMaterial);
                 copy.SetActive(sourceChild.gameObject.activeSelf);
             }
         }
@@ -186,12 +195,20 @@ namespace WhatLightRemains.Runtime
 
         private Material CreateFilledFloorMaterial(Material source)
         {
-            return CreateOpacityVariant(source, "Filled Floor Ghost", 0.46f);
+            return CreateOpacityVariant(source, "Filled Floor Ghost", 0.16f);
+        }
+
+        private Material CreateGlassMaterial(Material source)
+        {
+            // Large overlapping panes dominated the preview when they shared the body
+            // material. Keep glass barely present so door frames, floor seams, and the
+            // gravity arrow remain legible through the complete prefab ghost.
+            return CreateOpacityVariant(source, "Ghost Glass", 0.02f);
         }
 
         private Material CreateAccentMaterial(Material source)
         {
-            return CreateOpacityVariant(source, "Ghost Accent", 0.9f);
+            return CreateOpacityVariant(source, "Ghost Accent", 0.72f);
         }
 
         private Material CreateOpacityVariant(Material source, string suffix, float alpha)
@@ -289,6 +306,26 @@ namespace WhatLightRemains.Runtime
             for (Transform current = transform; current != null; current = current.parent)
             {
                 if (current.name.IndexOf("Floor", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+            }
+            return false;
+        }
+
+        private static bool IsGlassVisual(Transform transform)
+        {
+            for (Transform current = transform; current != null; current = current.parent)
+            {
+                if (current.name.IndexOf("Glass", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+            }
+
+            Renderer renderer = transform.GetComponent<Renderer>();
+            if (renderer == null) return false;
+            foreach (Material material in renderer.sharedMaterials)
+            {
+                if (material != null
+                    && material.name.IndexOf("Glass", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    return true;
+                }
             }
             return false;
         }

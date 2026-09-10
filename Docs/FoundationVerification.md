@@ -8,10 +8,10 @@ This report describes the acceptance matrix for the oriented-room creation miles
 | --- | ---: | --- |
 | Foundation asset regeneration | Passed | `FoundationBuilder.BuildAll` completed with no compile or generator errors |
 | Runtime and test assembly compilation | Passed | Unity imported all four project assemblies with no C# errors |
-| EditMode suite | Passed — 42/42 | `TestResults/EditMode.xml` |
-| PlayMode suite | Passed — 13/13 | `TestResults/PlayMode.xml` |
-| Windows x64 development build | Passed | `Build/Windows/WhatLightRemains.exe` (201,805,968 bytes) and `Logs/WindowsBuild.log` |
-| 1920×1080 visual pass | Passed | Built-player Create-mode capture shows the full ghost, arrow, prompts, viewmodel, and hotbar |
+| EditMode suite | Passed — 48/48 | `TestResults/editmode-rotation-ghost.xml` |
+| PlayMode suite | Passed — 13/13 | `TestResults/playmode-rotation-ghost.xml` |
+| Windows x64 development build | Passed | `Build/Windows/WhatLightRemains.exe` (201,802,090 total build bytes) and `TestResults/windows-build-rotation-ghost.log` |
+| 1920×1080 visual pass | Passed | `TestResults/CreationPreview-Fixed-1920x1080.png` shows the full ghost with readable internal geometry, low-opacity glass, arrow, prompts, viewmodel, and hotbar |
 | 1280×720 visual pass | Passed | Built-player capture confirms scaled UI and an unobstructed screen center |
 | Built-player startup/cursor smoke | Passed | Player launched the Foundation scene, released/recaptured the cursor, captured a frame, and exited with code 0 |
 | Full interactive controls walkthrough | Manual | Walk, sprint, jump, rotate, place, climb, and opacity-drag checks still require hands-on input |
@@ -29,8 +29,8 @@ The EditMode suite verifies:
 - the generated room's closed ceiling plus four edge variants, exact 2 m × 2.4 m ceiling openings, non-solid ladder art, and trigger-only ladder interaction;
 - the custom local-Y capsule, kinematic Rigidbody, independent yaw/pitch pivots, 3 m/s walk, 6 m/s sprint, 0.35-second gravity alignment, 2.5 m/s ladder speed, and 0.25-second detach cooldown;
 - normalized arbitrary-gravity movement and jump math;
-- full renderer-only ghost construction, filled-floor opacity, outline, gravity arrow, and absence of colliders, lights, or room scripts;
-- `Ctrl`/`Ctrl+Alt` rotation prompt text and generated keyboard/mouse bindings;
+- full renderer-only ghost construction, separate 2% glass/10% structure/16% floor opacity bands, alpha blending, outline, gravity arrow, and absence of colliders, lights, or room scripts;
+- normalized (`±1`) and legacy Windows (`±120`) mouse-wheel ticks producing one signed quarter-turn, plus `Ctrl`/`Ctrl+Alt` rotation prompt text and generated keyboard/mouse bindings;
 - exactly eight room strips, distributed strip emitters, four side-door and four ceiling-door frame variants, and doorway frame glow/cast-light power at 50% of strip power;
 - HD floor/glass resources, full 0–1 glass-opacity range, URP Forward+, camera stack, hotbar, and Foundation scene wiring.
 

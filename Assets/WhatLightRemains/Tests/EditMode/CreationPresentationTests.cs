@@ -8,6 +8,19 @@ namespace WhatLightRemains.Tests
 {
     public sealed class CreationPresentationTests
     {
+        [TestCase(1f, 1)]
+        [TestCase(-1f, -1)]
+        [TestCase(120f, 1)]
+        [TestCase(-120f, -1)]
+        [TestCase(0f, 0)]
+        [TestCase(0.005f, 0)]
+        public void RotationScroll_HandlesNormalizedAndPlatformSpecificWheelDeltas(
+            float scrollDelta,
+            int expectedStep)
+        {
+            Assert.That(FirstPersonInput.ConvertRotationScrollDelta(scrollDelta), Is.EqualTo(expectedStep));
+        }
+
         [Test]
         public void RotationPrompt_UsesFinalCtrlAndAltAxisMapping()
         {
@@ -49,6 +62,7 @@ namespace WhatLightRemains.Tests
                 CubeRoom room = source.AddComponent<CubeRoom>();
                 GameObject floor = CreatePrimitiveChild(source.transform, "Floor");
                 CreatePrimitiveChild(source.transform, "Glass Wall");
+                CreatePrimitiveChild(source.transform, "Door Frame");
 
                 previewMaterial.color = new Color(0f, 1f, 0.5f, 0.22f);
                 preview = RoomGhostPreview.Create(previewMaterial, room);
@@ -56,6 +70,8 @@ namespace WhatLightRemains.Tests
                     .Single(renderer => renderer.name == floor.name);
                 Renderer wallCopy = preview.Root.GetComponentsInChildren<Renderer>(true)
                     .Single(renderer => renderer.name == "Glass Wall");
+                Renderer frameCopy = preview.Root.GetComponentsInChildren<Renderer>(true)
+                    .Single(renderer => renderer.name == "Door Frame");
                 Renderer arrowCopy = preview.Root.GetComponentsInChildren<Renderer>(true)
                     .First(renderer => renderer.name == "Gravity Arrow Shaft");
 
@@ -64,9 +80,11 @@ namespace WhatLightRemains.Tests
                 Assert.That(preview.Root.GetComponentsInChildren<CubeRoom>(true), Is.Empty);
                 Assert.That(preview.Root.GetComponentsInChildren<LineRenderer>(true), Has.Length.EqualTo(12));
                 Assert.That(FindChild(preview.Root.transform, "Gravity Direction Arrow"), Is.Not.Null);
-                Assert.That(ReadAlpha(floorCopy.sharedMaterial), Is.EqualTo(0.46f).Within(0.001f));
-                Assert.That(ReadAlpha(wallCopy.sharedMaterial), Is.EqualTo(0.22f).Within(0.001f));
-                Assert.That(ReadAlpha(arrowCopy.sharedMaterial), Is.EqualTo(0.9f).Within(0.001f));
+                Assert.That(ReadAlpha(floorCopy.sharedMaterial), Is.EqualTo(0.16f).Within(0.001f));
+                Assert.That(ReadAlpha(wallCopy.sharedMaterial), Is.EqualTo(0.02f).Within(0.001f));
+                Assert.That(ReadAlpha(wallCopy.sharedMaterial), Is.LessThan(ReadAlpha(floorCopy.sharedMaterial)));
+                Assert.That(ReadAlpha(frameCopy.sharedMaterial), Is.EqualTo(0.10f).Within(0.001f));
+                Assert.That(ReadAlpha(arrowCopy.sharedMaterial), Is.EqualTo(0.72f).Within(0.001f));
             }
             finally
             {

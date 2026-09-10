@@ -181,6 +181,9 @@ namespace WhatLightRemains.Tests
             Assert.That(preview.shader.name, Is.EqualTo("Universal Render Pipeline/Unlit"));
             Assert.That(preview.GetTag("RenderType", false, string.Empty), Is.EqualTo("Transparent"));
             Assert.That(preview.renderQueue, Is.GreaterThan((int)RenderQueue.Transparent));
+            Assert.That(preview.GetFloat("_Blend"), Is.EqualTo(0f), "Ghost preview must use alpha blending, not additive blending.");
+            Assert.That(preview.GetFloat("_DstBlend"), Is.EqualTo((float)BlendMode.OneMinusSrcAlpha));
+            Assert.That(preview.GetColor("_BaseColor").a, Is.LessThanOrEqualTo(0.3f));
 
             Assert.That(
                 EditorBuildSettings.TryGetConfigObject("com.unity.input.settings.actions", out InputActionAsset configuredActions),

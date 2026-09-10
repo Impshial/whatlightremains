@@ -47,7 +47,7 @@ Rotation persists while Create mode remains active in the same source room. It r
 ## Presentation and player architecture
 
 - `CubeRoom.prefab` is a self-contained 8 m × 8 m × 8 m room with external 0.1 m boundaries, a 4 × 4 floor-tile texture layout, cleaner thick-glass transmission, structural floor/glass seam rails, and doorway/ceiling variants.
-- `RoomGhostPreview` is a renderer-only copy of the exact room prefab. It includes all visible geometry, a more opaque filled floor, a thin volume outline, and a centered 3D arrow pointing along the candidate room's local gravity direction. It contains no physics, lights, occupancy, room scripts, or gravity behavior.
+- `RoomGhostPreview` is a renderer-only copy of the exact room prefab. It uses separate low-opacity materials for glass, structure, and floor so internal door and frame details remain visible, plus a thin volume outline and centered 3D arrow pointing along the candidate room's local gravity direction. It contains no physics, lights, occupancy, room scripts, or gravity behavior.
 - Exactly eight primary light strips remain on each room: four vertical corner strips and four ceiling-perimeter strips. Their real-time emitters are distributed within the strip geometry rather than at room center.
 - Doorway frames use visible emission and embedded real-time emitters at exactly 50% of the room-strip power. Closed and non-owning boundary variants keep those lights disabled.
 - `Player.prefab` uses a custom kinematic capsule aligned to its local Y axis rather than Unity's world-up `CharacterController`. A separate yaw/pitch hierarchy preserves first-person look while the physical body smoothly aligns to a new room's gravity over 0.35 seconds.
