@@ -4,8 +4,8 @@ namespace WhatLightRemains.Runtime
 {
     /// <summary>
     /// Describes a non-blocking climb path through a ceiling doorway. Visual ladder
-    /// meshes deliberately need no colliders; one or more trigger colliders on this
-    /// object or its children advertise the path to PlayerLadderTraversal.
+    /// meshes deliberately need no colliders; a trigger collider on this same
+    /// GameObject advertises the path to PlayerLadderTraversal.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class CeilingLadder : MonoBehaviour

@@ -867,7 +867,11 @@ namespace WhatLightRemains.Tests
                 CeilingLadder ladder = passageRoot.GetComponentInChildren<CeilingLadder>(true);
                 Assert.That(ladder, Is.Not.Null);
                 Assert.That(ladder.GetComponentsInChildren<Renderer>(true), Has.Length.EqualTo(14));
-                Assert.That(ladder.GetComponentsInChildren<Collider>(true).All(collider => collider.isTrigger), Is.True,
+                Collider[] ladderColliders = ladder.GetComponentsInChildren<Collider>(true);
+                Assert.That(ladderColliders, Has.Length.EqualTo(1));
+                Assert.That(ladderColliders[0].gameObject, Is.SameAs(ladder.gameObject),
+                    "Unity only delivers trigger callbacks directly to collider/Rigidbody GameObjects; the ladder trigger must share the CeilingLadder GameObject.");
+                Assert.That(ladderColliders.All(collider => collider.isTrigger), Is.True,
                     "Ladder art must remain non-solid; only its traversal trigger may collide.");
             }
 

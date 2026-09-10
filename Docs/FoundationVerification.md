@@ -8,9 +8,9 @@ This report describes the acceptance matrix for the oriented-room creation miles
 | --- | ---: | --- |
 | Foundation asset regeneration | Passed | `FoundationBuilder.BuildAll` completed with no compile or generator errors |
 | Runtime and test assembly compilation | Passed | Unity imported all four project assemblies with no C# errors |
-| EditMode suite | Passed — 48/48 | `TestResults/editmode-rotation-ghost.xml` |
-| PlayMode suite | Passed — 13/13 | `TestResults/playmode-rotation-ghost.xml` |
-| Windows x64 development build | Passed | `Build/Windows/WhatLightRemains.exe` (201,802,090 total build bytes) and `TestResults/windows-build-rotation-ghost.log` |
+| EditMode suite | Passed — 48/48 | `TestResults/editmode-ladder-access.xml` |
+| PlayMode suite | Passed — 13/13 | `TestResults/playmode-ladder-access.xml` |
+| Windows x64 development build | Passed | `Build/Windows/WhatLightRemains.exe` (201,800,554 total build bytes) and `TestResults/windows-build-ladder-access.log` |
 | 1920×1080 visual pass | Passed | `TestResults/CreationPreview-Fixed-1920x1080.png` shows the full ghost with readable internal geometry, low-opacity glass, arrow, prompts, viewmodel, and hotbar |
 | 1280×720 visual pass | Passed | Built-player capture confirms scaled UI and an unobstructed screen center |
 | Built-player startup/cursor smoke | Passed | Player launched the Foundation scene, released/recaptured the cursor, captured a frame, and exited with code 0 |
@@ -43,7 +43,7 @@ The PlayMode suite verifies:
 - Create-mode entry/exit, bottom-center rotation hint visibility, full nonphysical ghost geometry, filled floor, and gravity arrow;
 - exact snapped side and ceiling candidates, floor rejection, one-click placement, reciprocal doorways, and preview cleanup;
 - independent created-room gravity with no duplicate player, camera, or HUD;
-- end-to-end ceiling-ladder traversal, destination-room handoff, collision-safe 0.35-second gravity alignment, and a grounded upper exit;
+- real PhysX-trigger discovery of generated ladders, end-to-end ceiling-ladder traversal, destination-room handoff, collision-safe 0.35-second gravity alignment, and a grounded upper exit;
 - current and future glass-opacity propagation;
 - cursor release/recapture behavior.
 

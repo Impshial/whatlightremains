@@ -187,9 +187,15 @@ namespace WhatLightRemains.Tests
             motor.ResetMotion();
             Physics.SyncTransforms();
 
-            traversal.OfferLadder(ladder);
-            Assert.That(traversal.Mount(ladder), Is.True);
+            // Let PhysX deliver the generated ladder's real trigger callback. This
+            // deliberately avoids the direct OfferLadder shortcut used previously.
+            yield return new WaitForFixedUpdate();
+
             const float step = 1f / 120f;
+            Assert.That(traversal.Tick(1f, false, step), Is.True,
+                "Walking forward inside the ladder trigger must mount it without a manual offer.");
+            Assert.That(traversal.IsAttached, Is.True,
+                "The generated ladder must be discoverable through its real trigger collider.");
             for (int index = 0; index < 600 && traversal.IsAttached; index++)
             {
                 traversal.Tick(1f, false, step);

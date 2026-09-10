@@ -1597,9 +1597,14 @@ namespace WhatLightRemains.Editor
             // room-relative up points toward local -Y, so a centered 1.8 m capsule is
             // grounded at 0.93 m from that edge after gravity alignment.
             upperExit.localPosition = new Vector3(0f, -3.07f, topZ);
-            BoxCollider trigger = CreateBoxCollider("Ladder Trigger", ladderRoot,
-                new Vector3(0f, openingCenter, centerZ),
-                new Vector3(1.15f, 0.9f, length + 0.2f));
+            // Keep the trigger on the same GameObject as CeilingLadder. Unity sends
+            // trigger callbacks to the two collider/Rigidbody GameObjects, but does
+            // not bubble a child collider's callbacks to arbitrary parent scripts.
+            // A child "Ladder Trigger" therefore rendered correctly yet never made
+            // the ladder available to PlayerLadderTraversal.
+            BoxCollider trigger = ladderRoot.gameObject.AddComponent<BoxCollider>();
+            trigger.center = new Vector3(0f, openingCenter, centerZ);
+            trigger.size = new Vector3(1.15f, 0.9f, length + 0.2f);
             trigger.isTrigger = true;
             ladder.Configure(lowerRoom, null, lowerMount, upperMount, lowerExit, upperExit);
         }
