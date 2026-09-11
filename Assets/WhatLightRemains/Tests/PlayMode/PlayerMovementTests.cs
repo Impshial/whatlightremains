@@ -257,6 +257,65 @@ namespace WhatLightRemains.Tests
         }
 
         [UnityTest]
+        public IEnumerator RotatedDoorway_ClearsFrameBeforeAlignmentAndOffersPromptOnlyOnElevatedSide()
+        {
+            RoomOrientation inverted = RoomOrientation.Identity.RotateAroundGridAxis(new Vector3Int(0, 0, 1), 2);
+            Assert.That(generator.TryGetPlacementCandidate(room, CubeRoomFace.East, inverted,
+                out RoomPlacementCandidate candidate), Is.True);
+            Assert.That(generator.TryPlaceRoom(candidate, out CubeRoom destination), Is.True);
+            Assert.That(generator.Passages, Has.Count.EqualTo(1));
+            RoomPassage passage = generator.Passages[0];
+            PlayerRoomTraversal traversal = motor.GetComponent<PlayerRoomTraversal>();
+            RoomCreationPromptView prompt = FindInScene<RoomCreationPromptView>();
+            PlayerLook look = motor.GetComponent<PlayerLook>();
+            Camera camera = motor.GetComponentsInChildren<Camera>(true).First(item => item.CompareTag("MainCamera"));
+            Physics.SyncTransforms();
+
+            yield return ResetPlayer(Vector3.right);
+            look.CaptureCursor();
+            camera.transform.rotation = Quaternion.LookRotation(
+                (passage.Aperture.Center - camera.transform.position).normalized, room.RoomUp);
+            yield return null;
+            Assert.That(traversal.Target, Is.Null, "A floor-level doorway must never become an E target.");
+            Assert.That(prompt.TraversalLabel.gameObject.activeSelf, Is.False);
+
+            bool completed = false;
+            for (int step = 0; step < 480; step++)
+            {
+                if (!traversal.IsOwningMovement)
+                    motor.Tick(Vector2.up, false, SimulationStep);
+                Physics.SyncTransforms();
+                yield return new WaitForFixedUpdate();
+                yield return null;
+                if (tracker.CurrentRoom == destination && !traversal.IsOwningMovement
+                    && !gravityAlignment.IsAligning)
+                {
+                    completed = true;
+                    break;
+                }
+            }
+
+            Assert.That(completed, Is.True,
+                "A rotated floor-level doorway must clear the shared frame, align, and land without wedging the capsule.");
+            Assert.That(Vector3.Angle(motor.transform.up, destination.RoomUp), Is.LessThan(1f));
+            Assert.That(destination.transform.InverseTransformPoint(motor.transform.position).y,
+                Is.EqualTo(0.93f).Within(0.10f));
+
+            camera.transform.rotation = Quaternion.LookRotation(
+                (passage.Aperture.Center - camera.transform.position).normalized, destination.RoomUp);
+            yield return null;
+            Assert.That(traversal.Target, Is.SameAs(passage),
+                "The same aperture must be targetable from its destination-elevated side.");
+            Assert.That(prompt.TraversalLabel.text, Is.EqualTo(RoomCreationPromptView.TraverseText));
+            Assert.That(prompt.TraversalLabel.gameObject.activeSelf, Is.True);
+
+            Vector3 before = motor.transform.position;
+            SimulateFor(0.25f, Vector2.up);
+            Assert.That((motor.transform.position - before).magnitude, Is.GreaterThan(0.4f),
+                "Normal movement must be restored after the automatic transition.");
+        }
+
+        [UnityTest]
         public IEnumerator CursorControls_ReleaseAndRecaptureThroughPlayerLook()
         {
             PlayerLook look = motor.GetComponent<PlayerLook>();

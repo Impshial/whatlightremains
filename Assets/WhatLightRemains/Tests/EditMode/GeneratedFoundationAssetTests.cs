@@ -92,7 +92,7 @@ namespace WhatLightRemains.Tests
             Assert.That(player.GetComponentInChildren<RoomCreationController>(true), Is.Not.Null);
             Assert.That(player.GetComponent<KinematicCapsuleMover>(), Is.Not.Null);
             Assert.That(player.GetComponent<PlayerGravityAlignment>(), Is.Not.Null);
-            Assert.That(player.GetComponent<PlayerLadderTraversal>(), Is.Not.Null);
+            Assert.That(player.GetComponent<PlayerRoomTraversal>(), Is.Not.Null);
             Assert.That(player.GetComponentInChildren<Camera>(true), Is.Not.Null);
             Assert.That(player.GetComponentInChildren<CubeRoom>(true), Is.Null);
             Assert.That(
@@ -117,8 +117,6 @@ namespace WhatLightRemains.Tests
             Assert.That(body.isKinematic, Is.True);
             Assert.That(body.useGravity, Is.False);
             Assert.That(player.GetComponent<PlayerGravityAlignment>().AlignmentDuration, Is.EqualTo(0.35f).Within(0.001f));
-            Assert.That(player.GetComponent<PlayerLadderTraversal>().ClimbSpeed, Is.EqualTo(2.5f).Within(0.001f));
-            Assert.That(player.GetComponent<PlayerLadderTraversal>().DetachCooldown, Is.EqualTo(0.25f).Within(0.001f));
 
             Transform yawPivot = player.transform.Find("Yaw Pivot");
             Assert.That(yawPivot, Is.Not.Null, "Yaw must remain separate from the arbitrary-gravity body root.");
@@ -147,6 +145,9 @@ namespace WhatLightRemains.Tests
             Assert.That(creationPrompt.RotationLabel, Is.Not.Null);
             Assert.That(creationPrompt.RotationLabel.gameObject.activeSelf, Is.False);
             Assert.That(creationPrompt.CurrentRotationText, Is.EqualTo(RoomCreationPromptView.RotationIdleText));
+            Assert.That(creationPrompt.TraversalLabel, Is.Not.Null);
+            Assert.That(creationPrompt.TraversalLabel.text, Is.EqualTo(RoomCreationPromptView.TraverseText));
+            Assert.That(creationPrompt.TraversalLabel.gameObject.activeSelf, Is.False);
             Assert.That(hotbar.GetComponentsInChildren<Slider>(true), Has.Length.EqualTo(1));
             Assert.That(hotbar.transform.localScale, Is.EqualTo(Vector3.one));
             Assert.That(hotbar.GetComponentInChildren<Canvas>(true).renderMode, Is.EqualTo(RenderMode.ScreenSpaceOverlay));
@@ -176,6 +177,7 @@ namespace WhatLightRemains.Tests
             Assert.That(actions.FindAction("Player/AlternateRotationAxis", true).bindings.Select(binding => binding.path),
                 Is.SupersetOf(new[] { "<Keyboard>/leftAlt", "<Keyboard>/rightAlt" }));
             Assert.That(actions.FindAction("Player/RotationScroll", true).bindings.Select(binding => binding.path), Does.Contain("<Mouse>/scroll"));
+            Assert.That(actions.FindAction("Player/Traverse", true).bindings.Select(binding => binding.path), Does.Contain("<Keyboard>/e"));
 
             Material preview = LoadRequiredAsset<Material>(RoomPreviewMaterialPath);
             Assert.That(preview.shader.name, Is.EqualTo("Universal Render Pipeline/Unlit"));
@@ -846,8 +848,8 @@ namespace WhatLightRemains.Tests
                 Assert.That(passageRoot, Is.Not.Null);
                 Assert.That(passageRoot.transform.IsChildOf(roomInstance.transform), Is.True);
                 Assert.That(passageRoot.activeSelf, Is.False);
-                Assert.That(renderers.arraySize, Is.EqualTo(26),
-                    "Each variant contains three panes, three frames, two strip segments, two housings, two edge trims, and fourteen ladder meshes.");
+                Assert.That(renderers.arraySize, Is.EqualTo(12),
+                    "Each legacy preview variant contains three panes, three frames, two strip segments, two housings, and two edge trims.");
                 Assert.That(colliders.arraySize, Is.EqualTo(3),
                     "Three solid pieces leave an exact centered 2 m by 2.4 m ceiling-edge opening.");
 
@@ -864,15 +866,7 @@ namespace WhatLightRemains.Tests
                 Assert.That(openingWidth, Is.EqualTo(CubeRoom.DoorwayWidth).Within(0.001f));
                 Assert.That(openingHeight, Is.EqualTo(CubeRoom.DoorwayHeight).Within(0.001f));
 
-                CeilingLadder ladder = passageRoot.GetComponentInChildren<CeilingLadder>(true);
-                Assert.That(ladder, Is.Not.Null);
-                Assert.That(ladder.GetComponentsInChildren<Renderer>(true), Has.Length.EqualTo(14));
-                Collider[] ladderColliders = ladder.GetComponentsInChildren<Collider>(true);
-                Assert.That(ladderColliders, Has.Length.EqualTo(1));
-                Assert.That(ladderColliders[0].gameObject, Is.SameAs(ladder.gameObject),
-                    "Unity only delivers trigger callbacks directly to collider/Rigidbody GameObjects; the ladder trigger must share the CeilingLadder GameObject.");
-                Assert.That(ladderColliders.All(collider => collider.isTrigger), Is.True,
-                    "Ladder art must remain non-solid; only its traversal trigger may collide.");
+                Assert.That(passageRoot.transform.Cast<Transform>().Any(child => child.name.Contains("Ladder")), Is.False);
             }
 
             Assert.That(edges, Is.EquivalentTo(new[]
@@ -895,7 +889,6 @@ namespace WhatLightRemains.Tests
             Assert.That(ceiling.EdgeCrossingRoots[0].activeSelf, Is.False,
                 "The full perimeter strip crossing an active aperture must be replaced by split segments.");
             Assert.That(ceiling.EdgeCrossingRoots.Skip(1).All(crossing => crossing.activeSelf), Is.True);
-            Assert.That(ceiling.ActivePassageRoot.GetComponentInChildren<CeilingLadder>(true), Is.Not.Null);
             ceiling.ResetConnectionState();
             Assert.That(ceiling.ActivePassageRoot, Is.Null);
             Assert.That(ceiling.ClosedRenderers.All(renderer => renderer.enabled), Is.True);

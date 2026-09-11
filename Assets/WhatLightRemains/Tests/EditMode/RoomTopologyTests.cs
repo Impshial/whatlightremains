@@ -77,20 +77,23 @@ namespace WhatLightRemains.Tests
         }
 
         [Test]
-        public void CeilingCandidate_CeilingDownRemainsSealed()
+        public void CeilingCandidate_CeilingDownCreatesCenteredSharedOpening()
         {
             RoomOrientation inverted = RoomOrientation.Identity.RotateAroundGridAxis(new Vector3Int(0, 0, 1), 2);
             Assert.That(layout.TryGetPlacementCandidate(layout.PrimaryRoom, CubeRoomFace.Ceiling,
                 inverted, out RoomPlacementCandidate candidate), Is.True);
             Assert.That(candidate.MatingFace, Is.EqualTo(CubeRoomFace.Ceiling));
-            Assert.That(candidate.PassageKind, Is.EqualTo(RoomPassageKind.Sealed));
+            Assert.That(candidate.PassageKind, Is.EqualTo(RoomPassageKind.CeilingOpening));
+            Assert.That(candidate.Connections[0].Aperture.Width, Is.EqualTo(2.4f).Within(0.001f));
+            Assert.That(candidate.Connections[0].Aperture.Height, Is.EqualTo(2.4f).Within(0.001f));
             Assert.That(candidate.CeilingEdge, Is.EqualTo(RoomCeilingEdge.None));
             Assert.That(layout.AnchorsAlign(candidate), Is.True);
 
             Assert.That(layout.TryPlaceRoom(candidate, out CubeRoom placed), Is.True);
             Assert.That(layout.PrimaryRoom.GetConnection(CubeRoomFace.Ceiling).IsConnected, Is.True);
-            Assert.That(layout.PrimaryRoom.GetConnection(CubeRoomFace.Ceiling).IsTraversable, Is.False);
-            Assert.That(placed.GetConnection(CubeRoomFace.Ceiling).IsTraversable, Is.False);
+            Assert.That(layout.PrimaryRoom.GetConnection(CubeRoomFace.Ceiling).IsTraversable, Is.True);
+            Assert.That(placed.GetConnection(CubeRoomFace.Ceiling).IsTraversable, Is.True);
+            Assert.That(layout.Passages, Has.Count.EqualTo(1));
         }
 
         [Test]
@@ -163,17 +166,33 @@ namespace WhatLightRemains.Tests
         }
 
         [Test]
-        public void SideCandidate_WithOpposedUpDirectionsRemainsVisibleAndSealed()
+        public void SideCandidate_WithOpposedUpDirectionsUsesExistingRoomDoorway()
         {
             RoomOrientation inverted = RoomOrientation.Identity.RotateAroundGridAxis(new Vector3Int(0, 0, 1), 2);
             Assert.That(layout.TryGetPlacementCandidate(layout.PrimaryRoom, CubeRoomFace.East,
                 inverted, out RoomPlacementCandidate candidate), Is.True);
             Assert.That(candidate.MatingFace, Is.EqualTo(CubeRoomFace.East));
-            Assert.That(candidate.PassageKind, Is.EqualTo(RoomPassageKind.Sealed));
+            Assert.That(candidate.PassageKind, Is.EqualTo(RoomPassageKind.SideDoorway));
+            Assert.That(candidate.Connections[0].Aperture.IsValid, Is.True);
 
             Assert.That(layout.TryPlaceRoom(candidate, out CubeRoom placed), Is.True);
             Assert.That(layout.PrimaryRoom.GetWallBoundary(CubeRoomWall.East).OwnsBoundary, Is.True);
             Assert.That(placed.GetWallBoundary(CubeRoomWall.East).OwnsBoundary, Is.False);
+            Assert.That(layout.PrimaryRoom.GetConnection(CubeRoomFace.East).IsTraversable, Is.True);
+            Assert.That(placed.GetConnection(CubeRoomFace.East).IsTraversable, Is.True);
+            Assert.That(layout.Passages, Has.Count.EqualTo(1));
+
+            RoomPassage passage = layout.Passages[0];
+            Assert.That(layout.PrimaryRoom.GetWallBoundary(CubeRoomWall.East).UsesExternalGeometry, Is.True);
+            Assert.That(placed.GetWallBoundary(CubeRoomWall.East).UsesExternalGeometry, Is.True);
+            Assert.That(passage.transform.Find("Base Rail Left"), Is.Not.Null,
+                "The source-side floor separator must exist on the same placement commit.");
+            Assert.That(passage.transform.Find("Base Rail Right"), Is.Not.Null,
+                "The destination-side floor separator must exist on the same placement commit.");
+            Assert.That(passage.IsFloorLevelFor(layout.PrimaryRoom), Is.True);
+            Assert.That(passage.IsElevatedFor(placed), Is.True);
+            Assert.That(passage.Aperture.Center,
+                Is.EqualTo(new Vector3(4f, 1.2f, 0f)).Using(Vector3ComparerWithEqualsOperator.Instance));
         }
 
         [Test]

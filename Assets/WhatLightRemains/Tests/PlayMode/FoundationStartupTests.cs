@@ -48,6 +48,8 @@ namespace WhatLightRemains.Tests
             Assert.That(prompt.CurrentText, Is.EqualTo(RoomCreationPromptView.NormalText));
             Assert.That(prompt.RotationLabel, Is.Not.Null);
             Assert.That(prompt.RotationLabel.gameObject.activeSelf, Is.False);
+            Assert.That(prompt.TraversalLabel, Is.Not.Null);
+            Assert.That(prompt.TraversalLabel.gameObject.activeSelf, Is.False);
             Assert.That(layout.PrimaryRoom.GetConnectedRoom(CubeRoomFace.Ceiling), Is.Null);
             Assert.That(layout.PrimaryRoom.CeilingBoundary, Is.Not.Null);
             Assert.That(layout.PrimaryRoom.CeilingBoundary.ClosedColliders.All(collider => collider.enabled), Is.True);
@@ -63,7 +65,7 @@ namespace WhatLightRemains.Tests
             Assert.That(FindInScene<FirstPersonMotor>(loadedScene), Has.Count.EqualTo(1));
             Assert.That(FindInScene<KinematicCapsuleMover>(loadedScene), Has.Count.EqualTo(1));
             Assert.That(FindInScene<PlayerGravityAlignment>(loadedScene), Has.Count.EqualTo(1));
-            Assert.That(FindInScene<PlayerLadderTraversal>(loadedScene), Has.Count.EqualTo(1));
+            Assert.That(FindInScene<PlayerRoomTraversal>(loadedScene), Has.Count.EqualTo(1));
             Assert.That(FindInScene<CharacterController>(loadedScene), Is.Empty);
             Assert.That(FindInScene<HotbarView>(loadedScene), Has.Count.EqualTo(1));
             Assert.That(FindInScene<Camera>(loadedScene), Has.Count.EqualTo(2));

@@ -64,6 +64,7 @@ namespace WhatLightRemains.Runtime
         private readonly Dictionary<Vector3Int, CubeRoom> roomByCell = new Dictionary<Vector3Int, CubeRoom>();
         private readonly Dictionary<CubeRoom, Vector3Int> cellByRoom = new Dictionary<CubeRoom, Vector3Int>();
         private readonly Dictionary<CubeRoom, RoomOrientation> orientationByRoom = new Dictionary<CubeRoom, RoomOrientation>();
+        private readonly List<RoomPassage> passages = new List<RoomPassage>();
         private bool initialized;
 
         public CubeRoom PrimaryRoom => primaryRoom;
@@ -72,6 +73,7 @@ namespace WhatLightRemains.Runtime
         public IReadOnlyList<CubeRoom> Rooms => rooms;
         public IReadOnlyList<Vector2Int> GridCells => gridCells;
         public IReadOnlyList<Vector3Int> GridCells3D => gridCells3D;
+        public IReadOnlyList<RoomPassage> Passages => passages;
         public int LastSeed { get; private set; }
         public event Action RoomsChanged;
 
@@ -153,13 +155,13 @@ namespace WhatLightRemains.Runtime
             Vector3Int targetCell = sourceCell + sourceDirection;
             if (roomByCell.ContainsKey(targetCell)) return false;
             CubeRoomFace matingFace = FaceInGridDirection(orientation, -sourceDirection);
-            if (!TryClassifyPassage(sourceFace, sourceOrientation, matingFace, orientation, out RoomPassageKind primaryPassage)) return false;
-            if (!TryBuildConnectionPlan(targetCell, orientation, sourceRoom, sourceFace, out RoomConnectionPlan[] plans)) return false;
-            RoomConnectionPlan primaryPlan = plans.FirstOrDefault(plan => plan.Neighbor == sourceRoom);
-            if (primaryPlan.Neighbor == null || primaryPlan.PassageKind != primaryPassage) return false;
-
             Vector3 position = GetRoomRootPosition(targetCell, orientation);
             Quaternion rotation = primaryRoom.transform.rotation * orientation.Rotation;
+            if (!TryBuildConnectionPlan(targetCell, orientation, position, rotation,
+                    sourceRoom, sourceFace, out RoomConnectionPlan[] plans)) return false;
+            RoomConnectionPlan primaryPlan = plans.FirstOrDefault(plan => plan.Neighbor == sourceRoom);
+            if (primaryPlan.Neighbor == null) return false;
+
             RoomPlacementCandidate proposed = new RoomPlacementCandidate(sourceRoom, sourceFace, matingFace,
                 targetCell, orientation, position, rotation, primaryPlan.PassageKind, primaryPlan.CeilingEdge, plans);
             if (!AnchorsAlign(proposed)) return false;
@@ -280,6 +282,7 @@ namespace WhatLightRemains.Runtime
 
         public void ClearGeneratedRooms()
         {
+            ClearPassages();
             for (int index = rooms.Count - 1; index >= 0; index--)
             {
                 CubeRoom room = rooms[index];
@@ -334,6 +337,7 @@ namespace WhatLightRemains.Runtime
         }
 
         private bool TryBuildConnectionPlan(Vector3Int targetCell, RoomOrientation candidateOrientation,
+            Vector3 candidatePosition, Quaternion candidateRotation,
             CubeRoom requiredSource, CubeRoomFace requiredSourceFace, out RoomConnectionPlan[] plans)
         {
             List<RoomConnectionPlan> result = new List<RoomConnectionPlan>(6);
@@ -343,14 +347,22 @@ namespace WhatLightRemains.Runtime
                 RoomOrientation neighborOrientation = orientationByRoom[neighbor];
                 CubeRoomFace candidateFace = FaceInGridDirection(candidateOrientation, direction);
                 CubeRoomFace neighborFace = FaceInGridDirection(neighborOrientation, -direction);
-                if (neighbor.GetConnectedRoom(neighborFace) != null
-                    || !TryClassifyPassage(neighborFace, neighborOrientation, candidateFace, candidateOrientation, out RoomPassageKind passage))
+                if (neighbor.GetConnectedRoom(neighborFace) != null)
                 {
                     plans = Array.Empty<RoomConnectionPlan>();
                     return false;
                 }
+                ResolveConnection(
+                    neighbor,
+                    neighborFace,
+                    candidateFace,
+                    candidatePosition,
+                    candidateRotation,
+                    null,
+                    out RoomPassageKind passage,
+                    out RoomAperture aperture);
                 RoomCeilingEdge edge = GetCeilingEdge(neighborFace, neighborOrientation, candidateFace, candidateOrientation);
-                result.Add(new RoomConnectionPlan(neighbor, neighborFace, candidateFace, passage, edge));
+                result.Add(new RoomConnectionPlan(neighbor, neighborFace, candidateFace, passage, edge, aperture));
             }
             RoomConnectionPlan sourcePlan = result.FirstOrDefault(plan => plan.Neighbor == requiredSource);
             if (sourcePlan.Neighbor == null || sourcePlan.NeighborFace != requiredSourceFace)
@@ -362,6 +374,7 @@ namespace WhatLightRemains.Runtime
 
         private void ConfigureSharedBoundaries()
         {
+            ClearPassages();
             foreach (CubeRoom room in rooms) if (room != null) room.ResetFaceConnections();
             for (int roomIndex = 0; roomIndex < rooms.Count; roomIndex++)
             {
@@ -370,15 +383,30 @@ namespace WhatLightRemains.Runtime
                 foreach (Vector3Int direction in PositiveGridDirections)
                 {
                     if (!roomByCell.TryGetValue(cell + direction, out CubeRoom neighbor) || neighbor == null) continue;
+                    int neighborIndex = rooms.IndexOf(neighbor);
                     RoomOrientation roomOrientation = orientationByRoom[room];
                     RoomOrientation neighborOrientation = orientationByRoom[neighbor];
                     CubeRoomFace roomFace = FaceInGridDirection(roomOrientation, direction);
                     CubeRoomFace neighborFace = FaceInGridDirection(neighborOrientation, -direction);
-                    if (!TryClassifyPassage(roomFace, roomOrientation, neighborFace, neighborOrientation, out RoomPassageKind passage)) continue;
+                    bool roomIsExisting = roomIndex < neighborIndex;
+                    CubeRoom existing = roomIsExisting ? room : neighbor;
+                    CubeRoom created = roomIsExisting ? neighbor : room;
+                    CubeRoomFace existingFace = roomIsExisting ? roomFace : neighborFace;
+                    CubeRoomFace createdFace = roomIsExisting ? neighborFace : roomFace;
+                    ResolveConnection(existing, existingFace, created, createdFace,
+                        out RoomPassageKind passage, out RoomAperture aperture);
                     RoomCeilingEdge edge = GetCeilingEdge(roomFace, roomOrientation, neighborFace, neighborOrientation);
-                    bool roomOwns = DetermineBoundaryOwner(roomIndex, rooms.IndexOf(neighbor), roomFace, neighborFace, passage);
-                    room.SetFaceConnection(roomFace, neighbor, neighborFace, passage, edge, roomOwns);
-                    neighbor.SetFaceConnection(neighborFace, room, roomFace, passage, edge, !roomOwns);
+                    bool roomOwns = DetermineBoundaryOwner(roomIndex, neighborIndex, roomFace, neighborFace, passage);
+                    room.SetFaceConnection(roomFace, neighbor, neighborFace, passage, edge, roomOwns, aperture);
+                    neighbor.SetFaceConnection(neighborFace, room, roomFace, passage, edge, !roomOwns, aperture);
+                    if (aperture.IsValid)
+                    {
+                        GameObject passageObject = new GameObject("Shared Room Passage");
+                        passageObject.transform.SetParent(transform, false);
+                        RoomPassage sharedPassage = passageObject.AddComponent<RoomPassage>();
+                        sharedPassage.Configure(room, roomFace, neighbor, neighborFace, aperture);
+                        passages.Add(sharedPassage);
+                    }
                 }
             }
         }
@@ -394,29 +422,92 @@ namespace WhatLightRemains.Runtime
             return firstIndex < secondIndex;
         }
 
-        private static bool TryClassifyPassage(CubeRoomFace firstFace, RoomOrientation firstOrientation,
-            CubeRoomFace secondFace, RoomOrientation secondOrientation, out RoomPassageKind passage)
+        private static void ResolveConnection(CubeRoom existingRoom, CubeRoomFace existingFace,
+            CubeRoom newRoom, CubeRoomFace newFace, out RoomPassageKind passage, out RoomAperture aperture)
         {
-            if (IsSide(firstFace) && IsSide(secondFace))
+            ResolveConnection(existingRoom, existingFace, newFace,
+                newRoom.transform.position, newRoom.transform.rotation, newRoom, out passage, out aperture);
+        }
+
+        private static void ResolveConnection(CubeRoom existingRoom, CubeRoomFace existingFace,
+            CubeRoomFace newFace, Vector3 newPosition, Quaternion newRotation,
+            CubeRoom newRoom,
+            out RoomPassageKind passage, out RoomAperture aperture)
+        {
+            aperture = default;
+            if (existingFace == CubeRoomFace.Floor || newFace == CubeRoomFace.Floor)
             {
-                // Floor-level side doorways line up only when both rooms agree on up.
-                // Other cardinal orientations still form a valid neighboring cell, but
-                // their shared face must remain sealed.
-                passage = firstOrientation.Up == secondOrientation.Up
-                    ? RoomPassageKind.SideDoorway
-                    : RoomPassageKind.Sealed;
-                return true;
-            }
-            if ((firstFace == CubeRoomFace.Ceiling && IsSide(secondFace)) || (secondFace == CubeRoomFace.Ceiling && IsSide(firstFace)))
-            {
-                passage = RoomPassageKind.CeilingToSideDoorway; return true;
+                passage = RoomPassageKind.Sealed;
+                return;
             }
 
-            // Every other cardinal full-face contact is geometrically valid but has no
-            // compatible doorway implementation. Keeping it sealed lets all four Z-axis
-            // preview orientations remain visible and placeable beside an existing room.
+            Matrix4x4 existingMatrix = existingRoom.transform.localToWorldMatrix;
+            Matrix4x4 newMatrix = Matrix4x4.TRS(newPosition, newRotation, Vector3.one);
+            if (IsSide(existingFace))
+            {
+                aperture = BuildSideDoorway(existingRoom, existingFace, existingMatrix);
+                passage = newFace == CubeRoomFace.Ceiling
+                    ? RoomPassageKind.CeilingToSideDoorway
+                    : RoomPassageKind.SideDoorway;
+                return;
+            }
+
+            if (existingFace == CubeRoomFace.Ceiling && IsSide(newFace))
+            {
+                aperture = BuildSideDoorway(newRoom, newFace, newMatrix);
+                passage = RoomPassageKind.CeilingToSideDoorway;
+                return;
+            }
+
+            if (existingFace == CubeRoomFace.Ceiling && newFace == CubeRoomFace.Ceiling)
+            {
+                Vector3 center = existingMatrix.MultiplyPoint3x4(GetFaceCenterLocal(CubeRoomFace.Ceiling));
+                aperture = new RoomAperture(center,
+                    existingMatrix.MultiplyVector(Vector3.right),
+                    existingMatrix.MultiplyVector(Vector3.forward),
+                    existingMatrix.MultiplyVector(Vector3.up),
+                    CubeRoom.DoorwayHeight, CubeRoom.DoorwayHeight,
+                    existingRoom, existingFace);
+                passage = RoomPassageKind.CeilingOpening;
+                return;
+            }
+
             passage = RoomPassageKind.Sealed;
-            return true;
+        }
+
+        private static RoomAperture BuildSideDoorway(CubeRoom authorityRoom, CubeRoomFace face, Matrix4x4 matrix)
+        {
+            Vector3 localCenter = GetFaceCenterLocal(face);
+            localCenter.y = CubeRoom.DoorwayHeight * 0.5f;
+            Vector3 localHorizontal = face == CubeRoomFace.West || face == CubeRoomFace.East
+                ? Vector3.forward
+                : Vector3.right;
+            return new RoomAperture(
+                matrix.MultiplyPoint3x4(localCenter),
+                matrix.MultiplyVector(localHorizontal),
+                matrix.MultiplyVector(Vector3.up),
+                matrix.MultiplyVector(CubeRoom.GetFaceNormalLocal(face)),
+                CubeRoom.DoorwayWidth,
+                CubeRoom.DoorwayHeight,
+                authorityRoom,
+                face);
+        }
+
+        private static Vector3 GetFaceCenterLocal(CubeRoomFace face)
+        {
+            float halfWidth = CubeRoom.InteriorWidth * 0.5f;
+            float halfDepth = CubeRoom.InteriorDepth * 0.5f;
+            float halfHeight = CubeRoom.InteriorHeight * 0.5f;
+            return face switch
+            {
+                CubeRoomFace.West => new Vector3(-halfWidth, halfHeight, 0f),
+                CubeRoomFace.East => new Vector3(halfWidth, halfHeight, 0f),
+                CubeRoomFace.South => new Vector3(0f, halfHeight, -halfDepth),
+                CubeRoomFace.North => new Vector3(0f, halfHeight, halfDepth),
+                CubeRoomFace.Floor => Vector3.zero,
+                CubeRoomFace.Ceiling => new Vector3(0f, CubeRoom.InteriorHeight, 0f),
+                _ => Vector3.zero,
+            };
         }
 
         private static RoomCeilingEdge GetCeilingEdge(CubeRoomFace firstFace, RoomOrientation firstOrientation,
@@ -447,6 +538,18 @@ namespace WhatLightRemains.Runtime
         }
 
         private static bool IsSide(CubeRoomFace face) => (int)face >= 0 && (int)face < 4;
+        private void ClearPassages()
+        {
+            for (int index = passages.Count - 1; index >= 0; index--)
+            {
+                RoomPassage passage = passages[index];
+                if (passage == null) continue;
+                passage.ReleaseGeometryOwnership();
+                passage.gameObject.SetActive(false);
+                DestroyRoomObject(passage.gameObject);
+            }
+            passages.Clear();
+        }
         private static void DestroyRoomObject(GameObject roomObject)
         {
             if (roomObject == null) return;

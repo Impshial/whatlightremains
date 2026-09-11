@@ -41,15 +41,18 @@ namespace WhatLightRemains.Runtime
         [SerializeField, HideInInspector] private RoomPassageKind passageKind;
         [SerializeField, HideInInspector] private RoomCeilingEdge ceilingEdge;
         [SerializeField, HideInInspector] private bool ownsBoundary = true;
+        [NonSerialized] private bool externalGeometryOwnsBoundary;
 
         public IReadOnlyList<Renderer> ClosedRenderers => closedRenderers;
         public IReadOnlyList<Collider> ClosedColliders => closedColliders;
         public IReadOnlyList<EdgeVariant> EdgeVariants => edgeVariants;
         public IReadOnlyList<GameObject> EdgeCrossingRoots => edgeCrossingRoots;
         public bool IsConnected => connected;
-        public bool HasPassage => passageKind == RoomPassageKind.CeilingToSideDoorway;
+        public bool HasPassage => passageKind == RoomPassageKind.CeilingToSideDoorway
+            || passageKind == RoomPassageKind.CeilingOpening;
         public RoomCeilingEdge CeilingEdge => ceilingEdge;
         public bool OwnsBoundary => ownsBoundary;
+        public bool UsesExternalGeometry => externalGeometryOwnsBoundary;
         public GameObject ActivePassageRoot { get; private set; }
         public CubeRoom ConnectedRoom
         {
@@ -60,6 +63,12 @@ namespace WhatLightRemains.Runtime
             }
         }
         public event Action StateChanged;
+
+        public void SetExternalGeometryOwned(bool owned)
+        {
+            externalGeometryOwnsBoundary = owned;
+            ApplyState();
+        }
 
         public void Configure(Renderer[] newClosedRenderers, Collider[] newClosedColliders, EdgeVariant[] newEdgeVariants)
         {
@@ -98,16 +107,16 @@ namespace WhatLightRemains.Runtime
         public void ApplyState()
         {
             ActivePassageRoot = null;
-            bool showClosed = ownsBoundary && (!connected || passageKind == RoomPassageKind.Sealed);
+            bool showClosed = !externalGeometryOwnsBoundary && ownsBoundary && (!connected || passageKind == RoomPassageKind.Sealed);
             SetEnabled(closedRenderers, showClosed);
             SetEnabled(closedColliders, showClosed);
 
             edgeVariants ??= Array.Empty<EdgeVariant>();
             foreach (EdgeVariant variant in edgeVariants)
             {
-                bool showVariant = ownsBoundary
+                bool showVariant = !externalGeometryOwnsBoundary && ownsBoundary
                     && connected
-                    && passageKind == RoomPassageKind.CeilingToSideDoorway
+                    && (passageKind == RoomPassageKind.CeilingToSideDoorway || passageKind == RoomPassageKind.CeilingOpening)
                     && variant.Edge == ceilingEdge;
                 SetEnabled(variant.Renderers, showVariant);
                 SetEnabled(variant.Colliders, showVariant);
@@ -117,11 +126,6 @@ namespace WhatLightRemains.Runtime
                     if (showVariant)
                     {
                         ActivePassageRoot = variant.PassageRoot;
-                        CeilingLadder ladder = variant.PassageRoot.GetComponentInChildren<CeilingLadder>(true);
-                        if (ladder != null)
-                        {
-                            ladder.SetRooms(GetComponentInParent<CubeRoom>(), ConnectedRoom);
-                        }
                     }
                 }
             }
@@ -132,7 +136,7 @@ namespace WhatLightRemains.Runtime
                 GameObject crossingRoot = edgeCrossingRoots[index];
                 if (crossingRoot == null) continue;
                 RoomCeilingEdge edge = (RoomCeilingEdge)(index + 1);
-                bool crossesActiveOpening = ownsBoundary
+                bool crossesActiveOpening = !externalGeometryOwnsBoundary && ownsBoundary
                     && connected
                     && passageKind == RoomPassageKind.CeilingToSideDoorway
                     && ceilingEdge == edge;

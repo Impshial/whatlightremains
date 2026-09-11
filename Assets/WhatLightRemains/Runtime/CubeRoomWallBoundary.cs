@@ -24,11 +24,13 @@ namespace WhatLightRemains.Runtime
         [SerializeField, HideInInspector] private bool connected;
         [SerializeField, HideInInspector] private bool hasDoorway;
         [SerializeField, HideInInspector] private bool ownsBoundary = true;
+        [NonSerialized] private bool externalGeometryOwnsBoundary;
 
         public CubeRoomWall Wall => wall;
         public bool IsConnected => connected;
         public bool HasDoorway => hasDoorway;
         public bool OwnsBoundary => ownsBoundary;
+        public bool UsesExternalGeometry => externalGeometryOwnsBoundary;
         public Renderer ClosedGlassRenderer => closedGlassRenderer;
         public IReadOnlyList<Renderer> DoorwayGlassRenderers => doorwayGlassRenderers;
         public IReadOnlyList<Renderer> DoorwayFrameRenderers => doorwayFrameRenderers;
@@ -37,6 +39,12 @@ namespace WhatLightRemains.Runtime
         public Collider ClosedCollider => closedCollider;
         public IReadOnlyList<Collider> DoorwayColliders => doorwayColliders;
         public event Action StateChanged;
+
+        public void SetExternalGeometryOwned(bool owned)
+        {
+            externalGeometryOwnsBoundary = owned;
+            ApplyState();
+        }
 
         public void Configure(
             CubeRoomWall newWall,
@@ -122,8 +130,8 @@ namespace WhatLightRemains.Runtime
 
         private void ApplyVisualState()
         {
-            bool showClosedBoundary = ownsBoundary && !hasDoorway;
-            bool showDoorwayBoundary = ownsBoundary && hasDoorway;
+            bool showClosedBoundary = !externalGeometryOwnsBoundary && ownsBoundary && !hasDoorway;
+            bool showDoorwayBoundary = !externalGeometryOwnsBoundary && ownsBoundary && hasDoorway;
             SetEnabled(closedGlassRenderer, showClosedBoundary);
             SetEnabled(doorwayGlassRenderers, showDoorwayBoundary);
             SetEnabled(doorwayFrameRenderers, showDoorwayBoundary);
@@ -133,8 +141,8 @@ namespace WhatLightRemains.Runtime
 
         private void ApplyColliderState()
         {
-            bool showClosedBoundary = ownsBoundary && !hasDoorway;
-            bool showDoorwayBoundary = ownsBoundary && hasDoorway;
+            bool showClosedBoundary = !externalGeometryOwnsBoundary && ownsBoundary && !hasDoorway;
+            bool showDoorwayBoundary = !externalGeometryOwnsBoundary && ownsBoundary && hasDoorway;
             SetEnabled(closedCollider, showClosedBoundary);
             SetEnabled(doorwayColliders, showDoorwayBoundary);
         }

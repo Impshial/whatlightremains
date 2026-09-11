@@ -1,4 +1,5 @@
 using UnityEngine;
+using System;
 
 namespace WhatLightRemains.Runtime
 {
@@ -29,6 +30,7 @@ namespace WhatLightRemains.Runtime
         public const float AnchorAlignmentTolerance = 0.001f;
 
         [SerializeField, Min(0f)] private float gravityStrength = 9.81f;
+        [SerializeField] private bool powerOn = true;
         [SerializeField] private CubeRoomLighting lighting;
         [SerializeField] private RoomOccupancyVolume occupancyVolume;
         [SerializeField] private Renderer[] wallGlassRenderers = new Renderer[4];
@@ -50,6 +52,25 @@ namespace WhatLightRemains.Runtime
         public RoomOccupancyVolume OccupancyVolume => occupancyVolume;
         public Vector3 InteriorSize => new Vector3(InteriorWidth, InteriorHeight, InteriorDepth);
         public CubeRoomCeilingBoundary CeilingBoundary => ceilingBoundary;
+        public bool PowerOn => powerOn;
+        public event Action<CubeRoom, bool> PowerChanged;
+        public event Action<CubeRoom> LightingStateChanged;
+
+        public void SetPower(bool on)
+        {
+            if (powerOn == on)
+            {
+                if (lighting != null) lighting.SetPowerState(powerOn);
+                LightingStateChanged?.Invoke(this);
+                return;
+            }
+            powerOn = on;
+            if (lighting != null) lighting.SetPowerState(powerOn);
+            PowerChanged?.Invoke(this, powerOn);
+            LightingStateChanged?.Invoke(this);
+        }
+
+        public void TogglePower() => SetPower(!powerOn);
 
         public void Configure(
             float newGravityStrength,
@@ -64,6 +85,7 @@ namespace WhatLightRemains.Runtime
             {
                 occupancyVolume.Configure(this);
             }
+            if (lighting != null) lighting.SetPowerState(powerOn);
         }
 
         public void SetLightingEnabled(bool enabled)
@@ -71,6 +93,7 @@ namespace WhatLightRemains.Runtime
             if (lighting != null)
             {
                 lighting.SetLightingEnabled(enabled);
+                LightingStateChanged?.Invoke(this);
             }
         }
 
@@ -155,13 +178,26 @@ namespace WhatLightRemains.Runtime
             RoomCeilingEdge ceilingEdge,
             bool ownsSharedBoundary)
         {
+            SetFaceConnection(face, neighbor, neighborFace, passageKind, ceilingEdge, ownsSharedBoundary, default);
+        }
+
+        public void SetFaceConnection(
+            CubeRoomFace face,
+            CubeRoom neighbor,
+            CubeRoomFace neighborFace,
+            RoomPassageKind passageKind,
+            RoomCeilingEdge ceilingEdge,
+            bool ownsSharedBoundary,
+            RoomAperture aperture)
+        {
             EnsureFaceConnectionArray();
             faceConnections[(int)face] = new RoomFaceConnection(
                 neighbor,
                 neighborFace,
                 passageKind,
                 ceilingEdge,
-                ownsSharedBoundary);
+                ownsSharedBoundary,
+                aperture);
 
             if (TryGetWall(face, out CubeRoomWall wall))
             {
@@ -257,6 +293,11 @@ namespace WhatLightRemains.Runtime
         public void ConfigureCeilingBoundary(CubeRoomCeilingBoundary boundary)
         {
             ceilingBoundary = boundary;
+        }
+
+        private void Awake()
+        {
+            if (lighting != null) lighting.SetPowerState(powerOn);
         }
 
         public Vector3 GetFaceAnchorLocal(CubeRoomFace face, CubeRoomWallAnchor anchor)
@@ -514,6 +555,11 @@ namespace WhatLightRemains.Runtime
             {
                 lighting = GetComponentInChildren<CubeRoomLighting>(true);
             }
+            if (lighting != null)
+            {
+                lighting.SetPowerState(powerOn);
+            }
+            LightingStateChanged?.Invoke(this);
 
             if (occupancyVolume == null)
             {

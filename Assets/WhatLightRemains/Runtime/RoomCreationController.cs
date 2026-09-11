@@ -13,6 +13,7 @@ namespace WhatLightRemains.Runtime
         [SerializeField] private CubeRoomClusterGenerator roomLayout;
         [SerializeField] private RoomCreationPromptView promptView;
         [SerializeField] private Material previewMaterial;
+        [SerializeField] private PlayerRoomTraversal roomTraversal;
 
         private RoomGhostPreview preview;
         private RoomPlacementCandidate candidate;
@@ -44,7 +45,8 @@ namespace WhatLightRemains.Runtime
         public bool EnterCreateMode()
         {
             ResolveDependencies();
-            if (!GameplayInputIsCaptured() || roomLayout == null || previewMaterial == null)
+            if (!GameplayInputIsCaptured() || roomLayout == null || previewMaterial == null
+                || (roomTraversal != null && roomTraversal.IsOwningMovement))
             {
                 return false;
             }
@@ -142,6 +144,7 @@ namespace WhatLightRemains.Runtime
 
             if (input.ToggleCreatePressedThisFrame)
             {
+                if (roomTraversal != null && roomTraversal.IsOwningMovement) return;
                 if (IsCreateMode) CancelCreateMode();
                 else EnterCreateMode();
                 return;
@@ -203,6 +206,7 @@ namespace WhatLightRemains.Runtime
             gameplayCamera ??= GetComponentInChildren<Camera>();
             roomLayout ??= FindAnyObjectByType<CubeRoomClusterGenerator>();
             promptView ??= FindAnyObjectByType<RoomCreationPromptView>();
+            roomTraversal ??= GetComponent<PlayerRoomTraversal>();
         }
 
         private void EnsurePreview()

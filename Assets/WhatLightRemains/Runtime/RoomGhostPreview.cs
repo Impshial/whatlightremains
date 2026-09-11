@@ -21,11 +21,16 @@ namespace WhatLightRemains.Runtime
         private readonly Dictionary<Renderer, Renderer> rendererCopies = new();
         private readonly Dictionary<GameObject, GameObject> objectCopies = new();
         private readonly CubeRoom roomPrefab;
+        private readonly Material ghostGlassMaterial;
+        private readonly Material ghostAccentMaterial;
+        private GameObject dynamicApertureRoot;
 
-        private RoomGhostPreview(GameObject root, CubeRoom prefab)
+        private RoomGhostPreview(GameObject root, CubeRoom prefab, Material glass, Material accent)
         {
             Root = root;
             roomPrefab = prefab;
+            ghostGlassMaterial = glass;
+            ghostAccentMaterial = accent;
         }
 
         public GameObject Root { get; private set; }
@@ -37,11 +42,15 @@ namespace WhatLightRemains.Runtime
         {
             if (material == null) throw new ArgumentNullException(nameof(material));
             GameObject root = new GameObject("Room Creation Ghost");
-            RoomGhostPreview preview = new RoomGhostPreview(root, prefab);
+            Material glassMaterial = new Material(material);
+            Material accentMaterial = new Material(material);
+            RoomGhostPreview preview = new RoomGhostPreview(root, prefab, glassMaterial, accentMaterial);
+            preview.ownedMaterials.Add(glassMaterial);
+            preview.ownedMaterials.Add(accentMaterial);
             Material bodyMaterial = preview.CreateOpacityVariant(material, "Ghost Body", 0.10f);
             Material floorMaterial = preview.CreateFilledFloorMaterial(material);
-            Material glassMaterial = preview.CreateGlassMaterial(material);
-            Material accentMaterial = preview.CreateAccentMaterial(material);
+            ConfigureOpacityVariant(glassMaterial, "Ghost Glass", 0.02f);
+            ConfigureOpacityVariant(accentMaterial, "Ghost Accent", 0.72f);
             if (prefab != null)
             {
                 preview.CopyVisualHierarchy(prefab.transform, root.transform, bodyMaterial, floorMaterial, glassMaterial);
@@ -226,17 +235,33 @@ namespace WhatLightRemains.Runtime
             return material;
         }
 
+        private static void ConfigureOpacityVariant(Material material, string suffix, float alpha)
+        {
+            material.name = $"{material.name} ({suffix})";
+            material.hideFlags = HideFlags.DontSave;
+            Color color = material.HasProperty("_BaseColor") ? material.GetColor("_BaseColor") : material.color;
+            color.a = Mathf.Clamp01(alpha);
+            if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", color);
+            if (material.HasProperty("_Color")) material.SetColor("_Color", color);
+        }
+
         private void ApplyPredictedDoorways(RoomPlacementCandidate candidate)
         {
             if (roomPrefab == null) return;
+            if (dynamicApertureRoot != null) DestroyObject(dynamicApertureRoot);
+            dynamicApertureRoot = new GameObject("Predicted Shared Apertures");
+            dynamicApertureRoot.transform.SetParent(Root.transform, false);
             foreach (CubeRoomWallBoundary boundary in roomPrefab.GetComponentsInChildren<CubeRoomWallBoundary>(true))
             {
-                bool doorway = CandidateUsesSideDoorway(candidate, boundary.Wall);
+                RoomConnectionPlan? connection = FindConnection(candidate, CubeRoom.ToFace(boundary.Wall));
+                bool doorway = connection.HasValue && connection.Value.IsTraversable;
+                bool standard = doorway && IsStandardSideDoorway(connection.Value.Aperture);
                 SetCopyEnabled(boundary.ClosedGlassRenderer, !doorway);
                 SetCopyEnabled(boundary.ClosedBaseTrimRenderer, !doorway);
-                SetCopiesEnabled(boundary.DoorwayGlassRenderers, doorway);
-                SetCopiesEnabled(boundary.DoorwayFrameRenderers, doorway);
-                SetCopiesEnabled(boundary.DoorwayBaseTrimRenderers, doorway);
+                SetCopiesEnabled(boundary.DoorwayGlassRenderers, standard);
+                SetCopiesEnabled(boundary.DoorwayFrameRenderers, standard);
+                SetCopiesEnabled(boundary.DoorwayBaseTrimRenderers, standard);
+                if (doorway && !standard) BuildDynamicBoundary(connection.Value.CandidateFace, connection.Value.Aperture);
             }
 
             CubeRoomCeilingBoundary ceiling = roomPrefab.CeilingBoundary;
@@ -251,12 +276,14 @@ namespace WhatLightRemains.Runtime
                 }
             }
 
-            bool showPassage = ceilingConnection.HasValue
-                && ceilingConnection.Value.PassageKind == RoomPassageKind.CeilingToSideDoorway;
+            bool showPassage = ceilingConnection.HasValue && ceilingConnection.Value.IsTraversable;
+            bool showLegacyVariant = showPassage
+                && ceilingConnection.Value.PassageKind == RoomPassageKind.CeilingToSideDoorway
+                && ceilingConnection.Value.CeilingEdge != RoomCeilingEdge.None;
             SetCopiesEnabled(ceiling.ClosedRenderers, !showPassage);
             foreach (CubeRoomCeilingBoundary.EdgeVariant variant in ceiling.EdgeVariants)
             {
-                bool showVariant = showPassage
+                bool showVariant = showLegacyVariant
                     && variant.Edge == ceilingConnection.Value.CeilingEdge;
                 SetCopyActive(variant.PassageRoot, showVariant);
                 SetCopiesEnabled(variant.Renderers, showVariant);
@@ -265,9 +292,89 @@ namespace WhatLightRemains.Runtime
             {
                 GameObject crossingRoot = ceiling.EdgeCrossingRoots[index];
                 RoomCeilingEdge edge = (RoomCeilingEdge)(index + 1);
-                bool crossesOpening = showPassage && edge == ceilingConnection.Value.CeilingEdge;
+                bool crossesOpening = showLegacyVariant && edge == ceilingConnection.Value.CeilingEdge;
                 SetCopyActive(crossingRoot, !crossesOpening);
             }
+            if (showPassage && !showLegacyVariant)
+                BuildDynamicBoundary(CubeRoomFace.Ceiling, ceilingConnection.Value.Aperture);
+        }
+
+        private static RoomConnectionPlan? FindConnection(RoomPlacementCandidate candidate, CubeRoomFace face)
+        {
+            foreach (RoomConnectionPlan connection in candidate.Connections)
+                if (connection.CandidateFace == face) return connection;
+            return null;
+        }
+
+        private bool IsStandardSideDoorway(RoomAperture aperture)
+        {
+            Vector3 localCenter = Root.transform.InverseTransformPoint(aperture.Center);
+            Vector3 localVertical = Root.transform.InverseTransformDirection(aperture.VerticalAxis).normalized;
+            return Mathf.Abs(localCenter.y - CubeRoom.DoorwayHeight * 0.5f) < 0.01f
+                && Mathf.Abs(Vector3.Dot(localVertical, Vector3.up)) > 0.999f;
+        }
+
+        private void BuildDynamicBoundary(CubeRoomFace face, RoomAperture aperture)
+        {
+            Vector3 planeCenter = face switch
+            {
+                CubeRoomFace.West => new Vector3(-4f, 4f, 0f),
+                CubeRoomFace.East => new Vector3(4f, 4f, 0f),
+                CubeRoomFace.South => new Vector3(0f, 4f, -4f),
+                CubeRoomFace.North => new Vector3(0f, 4f, 4f),
+                CubeRoomFace.Ceiling => new Vector3(0f, 8f, 0f),
+                _ => Vector3.zero,
+            };
+            Vector3 u = Root.transform.InverseTransformDirection(aperture.HorizontalAxis).normalized;
+            Vector3 v = Root.transform.InverseTransformDirection(aperture.VerticalAxis).normalized;
+            Vector3 n = Root.transform.InverseTransformDirection(aperture.Normal).normalized;
+            Vector3 center = Root.transform.InverseTransformPoint(aperture.Center);
+            float cu = Vector3.Dot(center - planeCenter, u);
+            float cv = Vector3.Dot(center - planeCenter, v);
+            float left = cu - aperture.Width * 0.5f;
+            float right = cu + aperture.Width * 0.5f;
+            float bottom = cv - aperture.Height * 0.5f;
+            float top = cv + aperture.Height * 0.5f;
+            const float half = 4f;
+            CreateGhostPanel(planeCenter, u, v, n, -half, left, -half, half);
+            CreateGhostPanel(planeCenter, u, v, n, right, half, -half, half);
+            CreateGhostPanel(planeCenter, u, v, n, left, right, -half, bottom);
+            CreateGhostPanel(planeCenter, u, v, n, left, right, top, half);
+            CreateGhostFrame(center, u, v, n, aperture);
+        }
+
+        private void CreateGhostPanel(Vector3 planeCenter, Vector3 u, Vector3 v, Vector3 n,
+            float minU, float maxU, float minV, float maxV)
+        {
+            if (maxU - minU <= 0.001f || maxV - minV <= 0.001f) return;
+            CreateGhostCube("Predicted Glass", planeCenter + u * ((minU + maxU) * 0.5f)
+                + v * ((minV + maxV) * 0.5f), u, v, n,
+                new Vector3(maxU - minU, maxV - minV, 0.05f), ghostGlassMaterial);
+        }
+
+        private void CreateGhostFrame(Vector3 center, Vector3 u, Vector3 v, Vector3 n, RoomAperture aperture)
+        {
+            const float width = 0.08f;
+            CreateGhostCube("Predicted Frame Left", center - u * (aperture.Width * 0.5f + width * 0.5f), u, v, n,
+                new Vector3(width, aperture.Height + width * 2f, width), ghostAccentMaterial);
+            CreateGhostCube("Predicted Frame Right", center + u * (aperture.Width * 0.5f + width * 0.5f), u, v, n,
+                new Vector3(width, aperture.Height + width * 2f, width), ghostAccentMaterial);
+            CreateGhostCube("Predicted Frame Top", center + v * (aperture.Height * 0.5f + width * 0.5f), u, v, n,
+                new Vector3(aperture.Width, width, width), ghostAccentMaterial);
+        }
+
+        private void CreateGhostCube(string objectName, Vector3 position, Vector3 u, Vector3 v, Vector3 n,
+            Vector3 scale, Material material)
+        {
+            GameObject item = new GameObject(objectName);
+            item.transform.SetParent(dynamicApertureRoot.transform, false);
+            item.transform.localPosition = position;
+            item.transform.localRotation = Quaternion.LookRotation(n, v);
+            item.transform.localScale = scale;
+            item.AddComponent<MeshFilter>().sharedMesh = Resources.GetBuiltinResource<Mesh>("Cube.fbx");
+            MeshRenderer renderer = item.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = material;
+            ConfigureUnlitRenderer(renderer);
         }
 
         private static bool CandidateUsesSideDoorway(RoomPlacementCandidate candidate, CubeRoomWall wall)

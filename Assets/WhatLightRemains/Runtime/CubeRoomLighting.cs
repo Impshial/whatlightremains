@@ -32,6 +32,7 @@ namespace WhatLightRemains.Runtime
         [SerializeField] private LightShadows supportingLightShadows = LightShadows.None;
         [SerializeField] private RoomLightShadowResolutionTier supportingLightShadowResolution = RoomLightShadowResolutionTier.Low;
         [SerializeField] private bool isLightingEnabled = true;
+        [SerializeField, HideInInspector] private bool roomPowerOn = true;
 
         private MaterialPropertyBlock propertyBlock;
 
@@ -149,6 +150,7 @@ namespace WhatLightRemains.Runtime
         }
 
         public bool IsLightingEnabled => isLightingEnabled;
+        public bool IsEffectivelyLit => isLightingEnabled && roomPowerOn;
 
         public void Configure(Renderer[] strips, Light[] lights)
         {
@@ -186,8 +188,8 @@ namespace WhatLightRemains.Runtime
                 }
 
                 ApplyStripWidth(strip.transform);
-                ApplyEmission(strip, emissionIntensity);
-                strip.enabled = isLightingEnabled;
+                ApplyEmission(strip, IsEffectivelyLit ? emissionIntensity : 0f);
+                strip.enabled = true;
             }
 
             for (int i = 0; i < doorwayFrameRenderers.Length; i++)
@@ -197,7 +199,7 @@ namespace WhatLightRemains.Runtime
                 {
                     // Wall-boundary state owns visibility. Lighting only changes luminance so
                     // disabling a room does not accidentally close or reveal a doorway.
-                    ApplyEmission(frame, isLightingEnabled ? emissionIntensity * doorwayFramePowerRatio : 0f);
+                    ApplyEmission(frame, IsEffectivelyLit ? emissionIntensity * doorwayFramePowerRatio : 0f);
                 }
             }
 
@@ -210,7 +212,7 @@ namespace WhatLightRemains.Runtime
                 }
 
                 ApplyLightSettings(supportingLight, supportingLightIntensity);
-                supportingLight.enabled = isLightingEnabled;
+                supportingLight.enabled = IsEffectivelyLit;
             }
 
 
@@ -219,13 +221,19 @@ namespace WhatLightRemains.Runtime
                 Light doorwayLight = doorwayFrameLights[i];
                 if (doorwayLight == null) continue;
                 ApplyLightSettings(doorwayLight, supportingLightIntensity * doorwayFramePowerRatio);
-                doorwayLight.enabled = isLightingEnabled && DoorwayLightOwnsActivePassage(doorwayLight);
+                doorwayLight.enabled = IsEffectivelyLit && DoorwayLightOwnsActivePassage(doorwayLight);
             }
         }
 
         public void SetLightingEnabled(bool enabled)
         {
             isLightingEnabled = enabled;
+            ApplySettings();
+        }
+
+        public void SetPowerState(bool on)
+        {
+            roomPowerOn = on;
             ApplySettings();
         }
 
@@ -260,9 +268,10 @@ namespace WhatLightRemains.Runtime
                 light.spotAngle = supportingLightSpotAngle;
                 light.innerSpotAngle = Mathf.Min(supportingLightInnerSpotAngle, supportingLightSpotAngle);
             }
-            if (Application.isPlaying)
+            if (Application.isPlaying
+                && light.TryGetComponent(out UniversalAdditionalLightData additionalData))
             {
-                light.GetUniversalAdditionalLightData().additionalLightsShadowResolutionTier =
+                additionalData.additionalLightsShadowResolutionTier =
                     (int)supportingLightShadowResolution;
             }
         }
@@ -270,9 +279,9 @@ namespace WhatLightRemains.Runtime
         private static bool DoorwayLightOwnsActivePassage(Light doorwayLight)
         {
             CubeRoomWallBoundary boundary = doorwayLight.GetComponentInParent<CubeRoomWallBoundary>();
-            if (boundary != null) return boundary.HasDoorway && boundary.OwnsBoundary;
+            if (boundary != null) return boundary.HasDoorway && boundary.OwnsBoundary && !boundary.UsesExternalGeometry;
             CubeRoomCeilingBoundary ceiling = doorwayLight.GetComponentInParent<CubeRoomCeilingBoundary>();
-            return ceiling != null && ceiling.HasPassage && ceiling.OwnsBoundary;
+            return ceiling != null && ceiling.HasPassage && ceiling.OwnsBoundary && !ceiling.UsesExternalGeometry;
         }
 
         private void ApplyEmission(Renderer renderer, float intensity)

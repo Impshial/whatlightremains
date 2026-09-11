@@ -110,7 +110,8 @@ namespace WhatLightRemains.Tests
                 Assert.That(firstStrip.enabled, Is.True);
                 Assert.That(secondLighting.IsLightingEnabled, Is.False);
                 Assert.That(secondLight.enabled, Is.False);
-                Assert.That(secondStrip.enabled, Is.False);
+                Assert.That(secondStrip.enabled, Is.True,
+                    "An unpowered strip remains physically present with zero emission.");
                 Assert.That(firstStrip.sharedMaterial, Is.SameAs(sharedMaterial));
                 Assert.That(secondStrip.sharedMaterial, Is.SameAs(sharedMaterial));
 
@@ -123,7 +124,7 @@ namespace WhatLightRemains.Tests
                 firstDoorwayFrame.GetPropertyBlock(firstFrameProperties);
                 secondDoorwayFrame.GetPropertyBlock(secondFrameProperties);
                 Color firstVisibleColor = new Color(3f, 0f, 0f, 1f);
-                Color secondVisibleColor = new Color(0f, 5f, 5f, 1f);
+                Color secondVisibleColor = new Color(0f, 0f, 0f, 1f);
                 Color firstFrameVisibleColor = new Color(1.25f, 0f, 0f, 1f);
                 Color secondFrameDisabledColor = new Color(0f, 0f, 0f, 1f);
                 AssertColor(firstProperties.GetColor(Shader.PropertyToID("_BaseColor")), firstVisibleColor);

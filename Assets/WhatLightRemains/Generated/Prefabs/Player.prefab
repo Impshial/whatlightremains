@@ -651,7 +651,7 @@ GameObject:
   - component: {fileID: 4093413171902578324}
   - component: {fileID: 6841706925430377882}
   - component: {fileID: 1429779551892615791}
-  - component: {fileID: 1339242895757888196}
+  - component: {fileID: 4887788067124057916}
   - component: {fileID: 8757354384928270682}
   - component: {fileID: 7499881474968383807}
   - component: {fileID: 512684838424836928}
@@ -791,7 +791,7 @@ MonoBehaviour:
   roomTracker: {fileID: 4093413171902578324}
   mover: {fileID: 6841706925430377882}
   alignmentDuration: 0.35
---- !u!114 &1339242895757888196
+--- !u!114 &4887788067124057916
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -800,17 +800,21 @@ MonoBehaviour:
   m_GameObject: {fileID: 8191574034244779842}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0a00bbd26951409c9278399a6bcc2fc8, type: 3}
+  m_Script: {fileID: 11500000, guid: d17c22aeaf254d2cb3173e239e12286a, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: WhatLightRemains.Runtime::WhatLightRemains.Runtime.PlayerLadderTraversal
-  mover: {fileID: 6841706925430377882}
-  legacyController: {fileID: 0}
+  m_EditorClassIdentifier: WhatLightRemains.Runtime::WhatLightRemains.Runtime.PlayerRoomTraversal
+  input: {fileID: 1976384643049066167}
   roomTracker: {fileID: 4093413171902578324}
-  facingTransform: {fileID: 5698927531442966569}
-  climbSpeed: 2.5
-  detachCooldown: 0.25
-  minimumFacingDot: 0.25
-  endpointTolerance: 0.04
+  mover: {fileID: 6841706925430377882}
+  gravityAlignment: {fileID: 1429779551892615791}
+  playerLook: {fileID: 7499881474968383807}
+  gameplayCamera: {fileID: 3264905031190513779}
+  creationController: {fileID: 512684838424836928}
+  promptView: {fileID: 0}
+  travelSpeed: 4
+  acceleration: 10
+  targetingMargin: 0.28
+  waypointTolerance: 0.06
 --- !u!114 &8757354384928270682
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -828,7 +832,7 @@ MonoBehaviour:
   input: {fileID: 1976384643049066167}
   roomTracker: {fileID: 4093413171902578324}
   gravityAlignment: {fileID: 1429779551892615791}
-  ladderTraversal: {fileID: 1339242895757888196}
+  roomTraversal: {fileID: 4887788067124057916}
   movementReference: {fileID: 5698927531442966569}
   controllerHeight: 1.8
   controllerRadius: 0.3
@@ -882,3 +886,4 @@ MonoBehaviour:
   roomLayout: {fileID: 0}
   promptView: {fileID: 0}
   previewMaterial: {fileID: 2100000, guid: 9b7a52ee153d0de4898592bb57015ddc, type: 2}
+  roomTraversal: {fileID: 0}

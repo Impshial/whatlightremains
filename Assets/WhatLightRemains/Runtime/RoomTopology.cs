@@ -20,6 +20,58 @@ namespace WhatLightRemains.Runtime
         Sealed = 1,
         SideDoorway = 2,
         CeilingToSideDoorway = 3,
+        CeilingOpening = 4,
+    }
+
+    /// <summary>
+    /// The single, world-space clear opening shared by two contacting room faces.  Keeping
+    /// this data on the reciprocal connection records prevents either player's current room
+    /// or a later renderer rebuild from re-authoring the opening.
+    /// </summary>
+    [Serializable]
+    public struct RoomAperture
+    {
+        [SerializeField] private Vector3 center;
+        [SerializeField] private Vector3 horizontalAxis;
+        [SerializeField] private Vector3 verticalAxis;
+        [SerializeField] private Vector3 normal;
+        [SerializeField] private float width;
+        [SerializeField] private float height;
+        [SerializeField] private CubeRoom authorityRoom;
+        [SerializeField] private CubeRoomFace authorityFace;
+
+        public RoomAperture(Vector3 center, Vector3 horizontalAxis, Vector3 verticalAxis,
+            Vector3 normal, float width, float height, CubeRoom authorityRoom, CubeRoomFace authorityFace)
+        {
+            this.center = center;
+            this.horizontalAxis = horizontalAxis.normalized;
+            this.verticalAxis = verticalAxis.normalized;
+            this.normal = normal.normalized;
+            this.width = Mathf.Max(0f, width);
+            this.height = Mathf.Max(0f, height);
+            this.authorityRoom = authorityRoom;
+            this.authorityFace = authorityFace;
+        }
+
+        public Vector3 Center => center;
+        public Vector3 HorizontalAxis => horizontalAxis;
+        public Vector3 VerticalAxis => verticalAxis;
+        public Vector3 Normal => normal;
+        public float Width => width;
+        public float Height => height;
+        public CubeRoom AuthorityRoom => authorityRoom;
+        public CubeRoomFace AuthorityFace => authorityFace;
+        public bool IsValid => width > 0.001f && height > 0.001f
+            && horizontalAxis.sqrMagnitude > 0.9f && verticalAxis.sqrMagnitude > 0.9f;
+
+        public Vector3 LowestPointFor(CubeRoom room)
+        {
+            if (room == null) return center;
+            Vector3 up = room.RoomUp.normalized;
+            float horizontalContribution = Mathf.Abs(Vector3.Dot(horizontalAxis, up)) * width * 0.5f;
+            float verticalContribution = Mathf.Abs(Vector3.Dot(verticalAxis, up)) * height * 0.5f;
+            return center - up * (horizontalContribution + verticalContribution);
+        }
     }
 
     public enum RoomCeilingEdge
@@ -184,14 +236,17 @@ namespace WhatLightRemains.Runtime
         [SerializeField] private RoomPassageKind passageKind;
         [SerializeField] private RoomCeilingEdge ceilingEdge;
         [SerializeField] private bool ownsSharedBoundary;
+        [SerializeField] private RoomAperture aperture;
 
-        public RoomFaceConnection(CubeRoom neighbor, CubeRoomFace neighborFace, RoomPassageKind passageKind, RoomCeilingEdge ceilingEdge, bool ownsSharedBoundary)
+        public RoomFaceConnection(CubeRoom neighbor, CubeRoomFace neighborFace, RoomPassageKind passageKind,
+            RoomCeilingEdge ceilingEdge, bool ownsSharedBoundary, RoomAperture aperture = default)
         {
             this.neighbor = neighbor;
             this.neighborFace = neighborFace;
             this.passageKind = passageKind;
             this.ceilingEdge = ceilingEdge;
             this.ownsSharedBoundary = ownsSharedBoundary;
+            this.aperture = aperture;
         }
 
         public CubeRoom Neighbor => neighbor;
@@ -199,19 +254,22 @@ namespace WhatLightRemains.Runtime
         public RoomPassageKind PassageKind => passageKind;
         public RoomCeilingEdge CeilingEdge => ceilingEdge;
         public bool OwnsSharedBoundary => ownsSharedBoundary;
+        public RoomAperture Aperture => aperture;
         public bool IsConnected => neighbor != null;
-        public bool IsTraversable => passageKind == RoomPassageKind.SideDoorway || passageKind == RoomPassageKind.CeilingToSideDoorway;
+        public bool IsTraversable => aperture.IsValid && passageKind != RoomPassageKind.None && passageKind != RoomPassageKind.Sealed;
     }
 
     public readonly struct RoomConnectionPlan
     {
-        public RoomConnectionPlan(CubeRoom neighbor, CubeRoomFace neighborFace, CubeRoomFace candidateFace, RoomPassageKind passageKind, RoomCeilingEdge ceilingEdge)
+        public RoomConnectionPlan(CubeRoom neighbor, CubeRoomFace neighborFace, CubeRoomFace candidateFace,
+            RoomPassageKind passageKind, RoomCeilingEdge ceilingEdge, RoomAperture aperture = default)
         {
             Neighbor = neighbor;
             NeighborFace = neighborFace;
             CandidateFace = candidateFace;
             PassageKind = passageKind;
             CeilingEdge = ceilingEdge;
+            Aperture = aperture;
         }
 
         public CubeRoom Neighbor { get; }
@@ -219,6 +277,7 @@ namespace WhatLightRemains.Runtime
         public CubeRoomFace CandidateFace { get; }
         public RoomPassageKind PassageKind { get; }
         public RoomCeilingEdge CeilingEdge { get; }
-        public bool IsTraversable => PassageKind == RoomPassageKind.SideDoorway || PassageKind == RoomPassageKind.CeilingToSideDoorway;
+        public RoomAperture Aperture { get; }
+        public bool IsTraversable => Aperture.IsValid && PassageKind != RoomPassageKind.None && PassageKind != RoomPassageKind.Sealed;
     }
 }

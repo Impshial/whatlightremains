@@ -11,14 +11,17 @@ namespace WhatLightRemains.Runtime
         public const string RotationIdleText = "Hold Ctrl to Rotate";
         public const string RotateYText = "Mouse Wheel: Rotate Y 90°";
         public const string RotateZText = "Mouse Wheel: Rotate Z 90°";
+        public const string TraverseText = "Hold E to Traverse";
 
         [SerializeField] private Text instructionLabel;
         [SerializeField] private Text rotationLabel;
+        [SerializeField] private Text traversalLabel;
 
         public Text InstructionLabel => instructionLabel;
         public Text RotationLabel => rotationLabel;
         public string CurrentText => instructionLabel != null ? instructionLabel.text : string.Empty;
         public string CurrentRotationText => rotationLabel != null ? rotationLabel.text : string.Empty;
+        public Text TraversalLabel => traversalLabel;
 
         public void Configure(Text label)
         {
@@ -31,6 +34,26 @@ namespace WhatLightRemains.Runtime
             instructionLabel = label;
             rotationLabel = newRotationLabel;
             SetCreateMode(false);
+        }
+
+        public void Configure(Text label, Text newRotationLabel, Text newTraversalLabel)
+        {
+            instructionLabel = label;
+            rotationLabel = newRotationLabel;
+            traversalLabel = newTraversalLabel;
+            if (traversalLabel != null)
+            {
+                traversalLabel.text = TraverseText;
+                traversalLabel.gameObject.SetActive(false);
+            }
+            SetCreateMode(false);
+        }
+
+        public void SetTraversalPrompt(bool visible)
+        {
+            if (traversalLabel == null) return;
+            traversalLabel.text = TraverseText;
+            traversalLabel.gameObject.SetActive(visible);
         }
 
         public void SetCreateMode(bool createMode)
@@ -46,6 +69,7 @@ namespace WhatLightRemains.Runtime
                 rotationLabel.gameObject.SetActive(createMode);
                 rotationLabel.text = RotationIdleText;
             }
+            if (createMode) SetTraversalPrompt(false);
         }
 
         public void SetRotationState(bool createMode, bool controlHeld, bool alternateAxisHeld)

@@ -11,7 +11,7 @@ namespace WhatLightRemains.Runtime
         [SerializeField] private FirstPersonInput input;
         [SerializeField] private PlayerRoomTracker roomTracker;
         [SerializeField] private PlayerGravityAlignment gravityAlignment;
-        [SerializeField] private PlayerLadderTraversal ladderTraversal;
+        [SerializeField] private PlayerRoomTraversal roomTraversal;
         [SerializeField] private Transform movementReference;
 
         [Header("Controller")]
@@ -102,7 +102,7 @@ namespace WhatLightRemains.Runtime
             FirstPersonInput inputSource,
             PlayerRoomTracker tracker,
             PlayerGravityAlignment alignment = null,
-            PlayerLadderTraversal ladder = null,
+            PlayerRoomTraversal traversal = null,
             Transform viewMovementReference = null)
         {
             if (isActiveAndEnabled && roomTracker != null)
@@ -114,14 +114,9 @@ namespace WhatLightRemains.Runtime
             input = inputSource;
             roomTracker = tracker;
             gravityAlignment = alignment;
-            ladderTraversal = ladder;
+            roomTraversal = traversal;
             movementReference = viewMovementReference;
             ApplyControllerDimensions();
-
-            if (ladderTraversal != null)
-            {
-                ladderTraversal.Configure(capsuleMover, characterController, roomTracker, MovementReference);
-            }
 
             if (gravityAlignment != null)
             {
@@ -240,7 +235,7 @@ namespace WhatLightRemains.Runtime
                 return;
             }
 
-            if (ladderTraversal != null && ladderTraversal.Tick(movementInput.y, jumpPressed, deltaTime))
+            if (roomTraversal != null && roomTraversal.IsOwningMovement)
             {
                 verticalSpeed = 0f;
                 IsGrounded = false;
@@ -359,7 +354,7 @@ namespace WhatLightRemains.Runtime
             input ??= GetComponent<FirstPersonInput>();
             roomTracker ??= GetComponent<PlayerRoomTracker>();
             gravityAlignment ??= GetComponent<PlayerGravityAlignment>();
-            ladderTraversal ??= GetComponent<PlayerLadderTraversal>();
+            roomTraversal ??= GetComponent<PlayerRoomTraversal>();
         }
 
         private void ApplyControllerDimensions()

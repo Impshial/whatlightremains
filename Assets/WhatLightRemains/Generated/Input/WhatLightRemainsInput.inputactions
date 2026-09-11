@@ -15,7 +15,8 @@
                 { "name": "Sprint", "type": "Button", "id": "d1f3b5dc-d57c-48d6-a369-6545085ec79e", "expectedControlType": "Button", "processors": "", "interactions": "", "initialStateCheck": true },
                 { "name": "RotateModifier", "type": "Button", "id": "23d2106b-77e8-4f37-8a68-4c8e163cfed4", "expectedControlType": "Button", "processors": "", "interactions": "", "initialStateCheck": true },
                 { "name": "AlternateRotationAxis", "type": "Button", "id": "05e33d90-555f-486f-aa8a-87a8f4818763", "expectedControlType": "Button", "processors": "", "interactions": "", "initialStateCheck": true },
-                { "name": "RotationScroll", "type": "Value", "id": "348de50f-ebd6-43cc-a07c-349b7b54bfa9", "expectedControlType": "Vector2", "processors": "", "interactions": "", "initialStateCheck": true }
+                { "name": "RotationScroll", "type": "Value", "id": "348de50f-ebd6-43cc-a07c-349b7b54bfa9", "expectedControlType": "Vector2", "processors": "", "interactions": "", "initialStateCheck": true },
+                { "name": "Traverse", "type": "Button", "id": "7f634884-4d48-47e8-9681-e021214690e1", "expectedControlType": "Button", "processors": "", "interactions": "", "initialStateCheck": false }
             ],
             "bindings": [
                 { "name": "WASD", "id": "547d0149-dfbb-4be4-b147-475b0ceaa247", "path": "2DVector", "interactions": "", "processors": "", "groups": "", "action": "Move", "isComposite": true, "isPartOfComposite": false },
@@ -34,7 +35,8 @@
                 { "name": "", "id": "67978e59-3b69-4139-a50f-f018bb7e6130", "path": "<Keyboard>/rightCtrl", "interactions": "", "processors": "", "groups": "", "action": "RotateModifier", "isComposite": false, "isPartOfComposite": false },
                 { "name": "", "id": "60b07283-3630-407e-abee-0b6e57b8f4a1", "path": "<Keyboard>/leftAlt", "interactions": "", "processors": "", "groups": "", "action": "AlternateRotationAxis", "isComposite": false, "isPartOfComposite": false },
                 { "name": "", "id": "9707ed9c-0e82-48e5-9baa-29e43097d73b", "path": "<Keyboard>/rightAlt", "interactions": "", "processors": "", "groups": "", "action": "AlternateRotationAxis", "isComposite": false, "isPartOfComposite": false },
-                { "name": "", "id": "34b638e9-cfc2-4ba5-87a4-084f71cd3f84", "path": "<Mouse>/scroll", "interactions": "", "processors": "", "groups": "", "action": "RotationScroll", "isComposite": false, "isPartOfComposite": false }
+                { "name": "", "id": "34b638e9-cfc2-4ba5-87a4-084f71cd3f84", "path": "<Mouse>/scroll", "interactions": "", "processors": "", "groups": "", "action": "RotationScroll", "isComposite": false, "isPartOfComposite": false },
+                { "name": "", "id": "5ec9e9cf-86bd-4b06-b63d-03f5db39ef34", "path": "<Keyboard>/e", "interactions": "", "processors": "", "groups": "", "action": "Traverse", "isComposite": false, "isPartOfComposite": false }
             ]
         }
     ],

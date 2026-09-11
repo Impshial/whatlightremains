@@ -867,7 +867,7 @@ namespace WhatLightRemains.Editor
                 PlayerRoomTracker tracker = root.AddComponent<PlayerRoomTracker>();
                 KinematicCapsuleMover mover = root.AddComponent<KinematicCapsuleMover>();
                 PlayerGravityAlignment alignment = root.AddComponent<PlayerGravityAlignment>();
-                PlayerLadderTraversal ladderTraversal = root.AddComponent<PlayerLadderTraversal>();
+                PlayerRoomTraversal roomTraversal = root.AddComponent<PlayerRoomTraversal>();
                 FirstPersonMotor motor = root.AddComponent<FirstPersonMotor>();
                 PlayerLook look = root.AddComponent<PlayerLook>();
                 RoomCreationController roomCreation = root.AddComponent<RoomCreationController>();
@@ -928,8 +928,9 @@ namespace WhatLightRemains.Editor
 
                 look.Configure(input, yaw, pitch, mainCamera);
                 look.FieldOfView = 75f;
-                motor.Configure(mover, input, tracker, alignment, ladderTraversal, yaw);
+                motor.Configure(mover, input, tracker, alignment, roomTraversal, yaw);
                 roomCreation.Configure(input, tracker, look, mainCamera, roomPreview);
+                roomTraversal.Configure(input, tracker, mover, alignment, mainCamera, look, roomCreation, null);
                 return PrefabUtility.SaveAsPrefabAsset(root, PlayerPrefabPath);
             }
             finally
@@ -1033,9 +1034,25 @@ namespace WhatLightRemains.Editor
                 Outline rotationOutline = rotationInstruction.gameObject.AddComponent<Outline>();
                 rotationOutline.effectColor = new Color(0f, 0f, 0f, 0.94f);
                 rotationOutline.effectDistance = new Vector2(2f, -2f);
+                Text traversalInstruction = CreateUiText(
+                    "Traversal Instruction",
+                    canvasObject.transform,
+                    RoomCreationPromptView.TraverseText,
+                    20,
+                    TextAnchor.MiddleCenter);
+                RectTransform traversalRect = traversalInstruction.rectTransform;
+                traversalRect.anchorMin = new Vector2(0.5f, 0f);
+                traversalRect.anchorMax = new Vector2(0.5f, 0f);
+                traversalRect.pivot = new Vector2(0.5f, 0f);
+                traversalRect.anchoredPosition = new Vector2(0f, 98f);
+                traversalRect.sizeDelta = new Vector2(680f, 38f);
+                Outline traversalOutline = traversalInstruction.gameObject.AddComponent<Outline>();
+                traversalOutline.effectColor = new Color(0f, 0f, 0f, 0.94f);
+                traversalOutline.effectDistance = new Vector2(2f, -2f);
                 root.GetComponent<RoomCreationPromptView>().Configure(
                     creationInstruction,
-                    rotationInstruction);
+                    rotationInstruction,
+                    traversalInstruction);
 
                 GameObject glassPanel = CreateUiImage(
                     "Glass Opacity Panel",
@@ -1149,6 +1166,15 @@ namespace WhatLightRemains.Editor
             GameObject hotbar = (GameObject)PrefabUtility.InstantiatePrefab(hotbarPrefab);
             tracker.GetComponent<RoomCreationController>().Initialize(
                 cluster,
+                hotbar.GetComponent<RoomCreationPromptView>());
+            tracker.GetComponent<PlayerRoomTraversal>().Configure(
+                tracker.GetComponent<FirstPersonInput>(),
+                tracker,
+                tracker.GetComponent<KinematicCapsuleMover>(),
+                tracker.GetComponent<PlayerGravityAlignment>(),
+                tracker.GetComponentInChildren<Camera>(),
+                tracker.GetComponent<PlayerLook>(),
+                tracker.GetComponent<RoomCreationController>(),
                 hotbar.GetComponent<RoomCreationPromptView>());
             EditorSceneManager.SaveScene(scene, FoundationScenePath);
         }
@@ -1438,7 +1464,7 @@ namespace WhatLightRemains.Editor
             Material glassMaterial,
             Material frameMaterial,
             Material stripHousingMaterial,
-            Material ladderMaterial)
+            Material trimMaterial)
         {
             GameObject boundaryObject = new GameObject("Ceiling Boundary");
             boundaryObject.transform.SetParent(glassParent, false);
@@ -1530,10 +1556,10 @@ namespace WhatLightRemains.Editor
                 float trimY = -CubeRoom.InteriorHeight * 0.5f + trimHeight * 0.5f;
                 renderers.Add(CreateCube("Ceiling Opening Edge Trim Left", passageRoot.transform,
                     new Vector3(-sideCenter, trimY, 0.05f),
-                    new Vector3(sideWidth, trimHeight, trimDepth), ladderMaterial, false, false));
+                    new Vector3(sideWidth, trimHeight, trimDepth), trimMaterial, false, false));
                 renderers.Add(CreateCube("Ceiling Opening Edge Trim Right", passageRoot.transform,
                     new Vector3(sideCenter, trimY, 0.05f),
-                    new Vector3(sideWidth, trimHeight, trimDepth), ladderMaterial, false, false));
+                    new Vector3(sideWidth, trimHeight, trimDepth), trimMaterial, false, false));
 
                 float colliderSideWidth = (8.2f - CubeRoom.DoorwayWidth) * 0.5f;
                 float colliderSideCenter = CubeRoom.DoorwayWidth * 0.5f + colliderSideWidth * 0.5f;
@@ -1550,7 +1576,6 @@ namespace WhatLightRemains.Editor
                         new Vector3(CubeRoom.DoorwayWidth, headerHeight, 0.10f)),
                 };
 
-                BuildCeilingLadder(room, passageRoot.transform, ladderMaterial, renderers);
                 variants.Add(new CubeRoomCeilingBoundary.EdgeVariant(
                     definition.edge,
                     renderers.ToArray(),
@@ -1563,54 +1588,6 @@ namespace WhatLightRemains.Editor
                 new Collider[] { closedCollider },
                 variants.ToArray());
             return boundary;
-        }
-
-        private static void BuildCeilingLadder(
-            CubeRoom lowerRoom,
-            Transform passageRoot,
-            Material material,
-            ICollection<Renderer> renderers)
-        {
-            Transform ladderRoot = NewChild(passageRoot, "Ceiling Ladder");
-            CeilingLadder ladder = ladderRoot.gameObject.AddComponent<CeilingLadder>();
-            const float openingCenter = -2.8f;
-            const float bottomZ = 7.05f;
-            const float topZ = -0.85f;
-            float centerZ = (bottomZ + topZ) * 0.5f;
-            float length = bottomZ - topZ;
-            renderers.Add(CreateCube("Ladder Rail Left", ladderRoot, new Vector3(-0.38f, openingCenter, centerZ),
-                new Vector3(0.08f, 0.08f, length), material, false, false));
-            renderers.Add(CreateCube("Ladder Rail Right", ladderRoot, new Vector3(0.38f, openingCenter, centerZ),
-                new Vector3(0.08f, 0.08f, length), material, false, false));
-            for (int index = 0; index < 12; index++)
-            {
-                float z = Mathf.Lerp(bottomZ - 0.25f, topZ + 0.25f, index / 11f);
-                renderers.Add(CreateCube($"Ladder Rung {index + 1:00}", ladderRoot,
-                    new Vector3(0f, openingCenter, z),
-                    new Vector3(0.82f, 0.06f, 0.06f), material, false, false));
-            }
-
-            Transform lowerMount = NewChild(ladderRoot, "Lower Mount");
-            lowerMount.localPosition = new Vector3(0f, openingCenter, bottomZ);
-            Transform upperMount = NewChild(ladderRoot, "Upper Mount");
-            upperMount.localPosition = new Vector3(0f, openingCenter, topZ);
-            Transform lowerExit = NewChild(ladderRoot, "Lower Exit");
-            lowerExit.localPosition = new Vector3(0f, openingCenter + 0.35f, bottomZ);
-            Transform upperExit = NewChild(ladderRoot, "Upper Exit");
-            // The destination room's floor is the outer edge of this aperture. Its
-            // room-relative up points toward local -Y, so a centered 1.8 m capsule is
-            // grounded at 0.93 m from that edge after gravity alignment.
-            upperExit.localPosition = new Vector3(0f, -3.07f, topZ);
-            // Keep the trigger on the same GameObject as CeilingLadder. Unity sends
-            // trigger callbacks to the two collider/Rigidbody GameObjects, but does
-            // not bubble a child collider's callbacks to arbitrary parent scripts.
-            // A child "Ladder Trigger" therefore rendered correctly yet never made
-            // the ladder available to PlayerLadderTraversal.
-            BoxCollider trigger = ladderRoot.gameObject.AddComponent<BoxCollider>();
-            trigger.center = new Vector3(0f, openingCenter, centerZ);
-            trigger.size = new Vector3(1.15f, 0.9f, length + 0.2f);
-            trigger.isTrigger = true;
-            ladder.Configure(lowerRoom, null, lowerMount, upperMount, lowerExit, upperExit);
         }
 
         private static void CreateDoorwayFrameEmitters(
@@ -1869,7 +1846,8 @@ namespace WhatLightRemains.Editor
                 { ""name"": ""Sprint"", ""type"": ""Button"", ""id"": ""d1f3b5dc-d57c-48d6-a369-6545085ec79e"", ""expectedControlType"": ""Button"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": true },
                 { ""name"": ""RotateModifier"", ""type"": ""Button"", ""id"": ""23d2106b-77e8-4f37-8a68-4c8e163cfed4"", ""expectedControlType"": ""Button"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": true },
                 { ""name"": ""AlternateRotationAxis"", ""type"": ""Button"", ""id"": ""05e33d90-555f-486f-aa8a-87a8f4818763"", ""expectedControlType"": ""Button"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": true },
-                { ""name"": ""RotationScroll"", ""type"": ""Value"", ""id"": ""348de50f-ebd6-43cc-a07c-349b7b54bfa9"", ""expectedControlType"": ""Vector2"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": true }
+                { ""name"": ""RotationScroll"", ""type"": ""Value"", ""id"": ""348de50f-ebd6-43cc-a07c-349b7b54bfa9"", ""expectedControlType"": ""Vector2"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": true },
+                { ""name"": ""Traverse"", ""type"": ""Button"", ""id"": ""7f634884-4d48-47e8-9681-e021214690e1"", ""expectedControlType"": ""Button"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": false }
             ],
             ""bindings"": [
                 { ""name"": ""WASD"", ""id"": ""547d0149-dfbb-4be4-b147-475b0ceaa247"", ""path"": ""2DVector"", ""interactions"": """", ""processors"": """", ""groups"": """", ""action"": ""Move"", ""isComposite"": true, ""isPartOfComposite"": false },
@@ -1888,7 +1866,8 @@ namespace WhatLightRemains.Editor
                 { ""name"": """", ""id"": ""67978e59-3b69-4139-a50f-f018bb7e6130"", ""path"": ""<Keyboard>/rightCtrl"", ""interactions"": """", ""processors"": """", ""groups"": """", ""action"": ""RotateModifier"", ""isComposite"": false, ""isPartOfComposite"": false },
                 { ""name"": """", ""id"": ""60b07283-3630-407e-abee-0b6e57b8f4a1"", ""path"": ""<Keyboard>/leftAlt"", ""interactions"": """", ""processors"": """", ""groups"": """", ""action"": ""AlternateRotationAxis"", ""isComposite"": false, ""isPartOfComposite"": false },
                 { ""name"": """", ""id"": ""9707ed9c-0e82-48e5-9baa-29e43097d73b"", ""path"": ""<Keyboard>/rightAlt"", ""interactions"": """", ""processors"": """", ""groups"": """", ""action"": ""AlternateRotationAxis"", ""isComposite"": false, ""isPartOfComposite"": false },
-                { ""name"": """", ""id"": ""34b638e9-cfc2-4ba5-87a4-084f71cd3f84"", ""path"": ""<Mouse>/scroll"", ""interactions"": """", ""processors"": """", ""groups"": """", ""action"": ""RotationScroll"", ""isComposite"": false, ""isPartOfComposite"": false }
+                { ""name"": """", ""id"": ""34b638e9-cfc2-4ba5-87a4-084f71cd3f84"", ""path"": ""<Mouse>/scroll"", ""interactions"": """", ""processors"": """", ""groups"": """", ""action"": ""RotationScroll"", ""isComposite"": false, ""isPartOfComposite"": false },
+                { ""name"": """", ""id"": ""5ec9e9cf-86bd-4b06-b63d-03f5db39ef34"", ""path"": ""<Keyboard>/e"", ""interactions"": """", ""processors"": """", ""groups"": """", ""action"": ""Traverse"", ""isComposite"": false, ""isPartOfComposite"": false }
             ]
         }
     ],

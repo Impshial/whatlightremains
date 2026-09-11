@@ -69,8 +69,8 @@ namespace WhatLightRemains.Runtime
         }
 
         /// <summary>
-        /// Defers gravity-room changes while an authored traversal (currently a ceiling
-        /// ladder) crosses overlapping or empty trigger volumes.
+        /// Defers gravity-room changes while an authored doorway traversal crosses
+        /// overlapping or empty trigger volumes.
         /// </summary>
         public void BeginRoomAssignmentLock()
         {

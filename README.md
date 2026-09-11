@@ -13,10 +13,11 @@ The current Windows development build is written to `Build/Windows/WhatLightRema
 
 ## Controls
 
-- `WASD`: move at 3 m/s; on a ladder, `W` climbs and `S` descends
+- `WASD`: move at 3 m/s
 - Hold left `Shift`: sprint at 6 m/s, including while the Create-mode rotation modifiers are held
 - Mouse: look
-- `Space`: jump approximately 1 m; while attached to a ladder, detach instead
+- `Space`: jump approximately 1 m
+- Hold `E` while aiming at the highlighted frame of an elevated opening: assisted traversal; release before entering the aperture to cancel
 - `C`: enter or cancel Create mode while the cursor is captured
 - Aim at an available side wall or ceiling in Create mode: preview an exactly snapped room
 - Hold either `Ctrl` and use the mouse wheel: rotate the preview 90° per detent around the source room's local Y axis
@@ -34,11 +35,11 @@ The bottom-center Create-mode hint shows `Hold Ctrl to Rotate`, changes to the a
 
 The primary room is the only room present at startup. In Create mode:
 
-- Side placement supports every cardinal room orientation. Aligned floors receive reciprocal centered 2 m × 2.4 m floor-level doorways; a candidate ceiling facing the source side receives the ceiling-to-side passage, while incompatible floor or side pairings remain sealed.
+- Side placement supports every cardinal room orientation. When an existing room contributes a side wall, that wall supplies its centered 2 m × 2.4 m floor-level doorway and the exact world-space aperture is projected into the new room, regardless of the new room's gravity.
 - The ceiling is a valid placement surface; the floor is not.
-- An upright room placed above another room remains sealed because neither room has a traversable floor opening.
-- A room whose side faces downward receives a normal side doorway. The lower room receives the matching edge-aligned 2 m × 2.4 m ceiling opening and a non-solid ladder.
-- An inverted room whose ceiling faces downward remains sealed.
+- Any contact involving a room's local Floor remains completely sealed and collidable. That sealed contact does not prevent other eligible contacts made by the same placement.
+- Existing-ceiling/new-side contacts use the new side wall's normal doorway and project it into the existing ceiling. Two touching ceilings share one centered 2.4 m × 2.4 m opening.
+- Each traversable connection owns one fixed authoritative aperture and one segmented physical boundary. Both rooms, preview, collision, lighting, targeting, and traversal use that same aperture; later topology rebuilds do not recenter it.
 - Occupied cells, incompatible orientations, connected target faces, and atomically stale candidates are rejected.
 - Any additional complete shared faces created by a placement are resolved at the same time, including loop-closing placements.
 
@@ -52,7 +53,9 @@ Rotation persists while Create mode remains active in the same source room. It r
 - Doorway frames use visible emission and embedded real-time emitters at exactly 50% of the room-strip power. Closed and non-owning boundary variants keep those lights disabled.
 - `Player.prefab` uses a custom kinematic capsule aligned to its local Y axis rather than Unity's world-up `CharacterController`. A separate yaw/pitch hierarchy preserves first-person look while the physical body smoothly aligns to a new room's gravity over 0.35 seconds.
 - During gravity alignment, translation, gravity integration, and jumping pause; mouse look remains active.
-- Traversable ceiling/side connections provide a 2.5 m/s ladder path. `Space` detaches, and a 0.25-second cooldown prevents immediate remounting.
+- Floor-level openings remain ordinary walk-through doorways and never show an `E` prompt. When a real crossing enters a room with different gravity, the traversal controller first clears the frame in the source orientation, then aligns and settles the player inside the destination.
+- Openings elevated relative to the current room's local floor can be targeted across the room and show exactly `Hold E to Traverse`. The same shared opening can therefore be walkable from one side and assisted from the other. Ladders and ladder-only triggers/input have been removed.
+- Every `CubeRoom` exposes an Inspector-visible `Power On` state plus `SetPower(bool)` and `TogglePower()`. Power is ON by default and independently controls that room's strip lights/emission and its side of shared doorway lighting without affecting gravity, collision, creation, or traversal.
 - `Hotbar.prefab` contains the eight-slot presentation hotbar, Create-mode hints, and glass-opacity control. The UI remains readable independently of room lighting.
 - `Foundation.unity` contains one authored primary room, one player rig, one HUD, and no generated neighbors.
 - `Validation.unity` remains a build-excluded lighting and gravity fixture.

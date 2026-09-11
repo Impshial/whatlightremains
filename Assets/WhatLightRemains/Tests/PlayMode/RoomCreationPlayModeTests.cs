@@ -37,7 +37,6 @@ namespace WhatLightRemains.Tests
             Assert.That(creation.PreviewObject.GetComponentsInChildren<Collider>(true), Is.Empty);
             Assert.That(creation.PreviewObject.GetComponentsInChildren<Light>(true), Is.Empty);
             Assert.That(creation.PreviewObject.GetComponentsInChildren<CubeRoom>(true), Is.Empty);
-            Assert.That(creation.PreviewObject.GetComponentsInChildren<CeilingLadder>(true), Is.Empty);
             Assert.That(creation.PreviewObject.GetComponentsInChildren<MeshRenderer>(true).Length,
                 Is.EqualTo(layout.RoomPrefab.GetComponentsInChildren<MeshRenderer>(true).Length + 2),
                 "The ghost must include every prefab mesh plus its shaft-and-head gravity arrow.");
@@ -150,71 +149,6 @@ namespace WhatLightRemains.Tests
                 Is.SameAs(layout.PrimaryRoom.GetWallGlassRenderer(CubeRoomWall.West).sharedMaterial));
             opacity.SetOpacity(0.77f);
             Assert.That(Shader.GetGlobalFloat(overrideId), Is.EqualTo(0.77f).Within(0.001f));
-        }
-
-        [UnityTest]
-        public IEnumerator CeilingSidePassage_LadderHandsOffRoomAndAlignsPlayerGravity()
-        {
-            yield return LoadFoundation();
-            CubeRoomClusterGenerator layout = FindInScene<CubeRoomClusterGenerator>().Single();
-            CubeRoom lowerRoom = layout.PrimaryRoom;
-            RoomOrientation sideDown = RoomOrientation.Identity.RotateAroundGridAxis(
-                new Vector3Int(0, 0, 1), 1);
-            Assert.That(layout.TryGetPlacementCandidate(
-                lowerRoom,
-                CubeRoomFace.Ceiling,
-                sideDown,
-                out RoomPlacementCandidate candidate), Is.True);
-            Assert.That(candidate.PassageKind, Is.EqualTo(RoomPassageKind.CeilingToSideDoorway));
-            Assert.That(layout.TryPlaceRoom(candidate, out CubeRoom upperRoom), Is.True);
-
-            CeilingLadder ladder = lowerRoom.CeilingBoundary.ActivePassageRoot
-                .GetComponentInChildren<CeilingLadder>(true);
-            Assert.That(ladder, Is.Not.Null);
-            Assert.That(ladder.LowerRoom, Is.SameAs(lowerRoom));
-            Assert.That(ladder.UpperRoom, Is.SameAs(upperRoom));
-
-            FirstPersonMotor motor = FindInScene<FirstPersonMotor>().Single();
-            PlayerLook look = motor.GetComponent<PlayerLook>();
-            PlayerRoomTracker tracker = motor.GetComponent<PlayerRoomTracker>();
-            PlayerLadderTraversal traversal = motor.GetComponent<PlayerLadderTraversal>();
-            PlayerGravityAlignment alignment = motor.GetComponent<PlayerGravityAlignment>();
-            KinematicCapsuleMover mover = motor.GetComponent<KinematicCapsuleMover>();
-            motor.enabled = false;
-            if (look != null) look.enabled = false;
-            motor.transform.SetPositionAndRotation(ladder.LowerMountPosition, lowerRoom.transform.rotation);
-            alignment.SnapToUp(lowerRoom.RoomUp);
-            motor.ResetMotion();
-            Physics.SyncTransforms();
-
-            // Let PhysX deliver the generated ladder's real trigger callback. This
-            // deliberately avoids the direct OfferLadder shortcut used previously.
-            yield return new WaitForFixedUpdate();
-
-            const float step = 1f / 120f;
-            Assert.That(traversal.Tick(1f, false, step), Is.True,
-                "Walking forward inside the ladder trigger must mount it without a manual offer.");
-            Assert.That(traversal.IsAttached, Is.True,
-                "The generated ladder must be discoverable through its real trigger collider.");
-            for (int index = 0; index < 600 && traversal.IsAttached; index++)
-            {
-                traversal.Tick(1f, false, step);
-            }
-
-            Assert.That(traversal.IsAttached, Is.False, "The climb must complete rather than stall at the ceiling seam.");
-            Assert.That(tracker.CurrentRoom, Is.SameAs(upperRoom));
-            Assert.That(Vector3.Distance(motor.transform.position, ladder.UpperExitPosition), Is.LessThan(0.001f));
-            Assert.That(alignment.IsAligning, Is.True);
-
-            for (int index = 0; index < 120 && alignment.IsAligning; index++)
-            {
-                alignment.Tick(step);
-            }
-
-            Assert.That(alignment.IsAligning, Is.False, "The 0.35-second gravity handoff must not remain collision-blocked.");
-            Assert.That(Vector3.Dot(motor.transform.up, upperRoom.RoomUp), Is.GreaterThan(0.999f));
-            Assert.That(mover.ProbeGround(upperRoom.RoomUp, 0.08f, 55f, out _), Is.True,
-                "The upper exit must leave the aligned capsule grounded on the destination room's floor.");
         }
 
         [UnityTearDown]
