@@ -655,6 +655,7 @@ GameObject:
   - component: {fileID: 8757354384928270682}
   - component: {fileID: 7499881474968383807}
   - component: {fileID: 512684838424836928}
+  - component: {fileID: 5429047102331691301}
   m_Layer: 8
   m_Name: Player
   m_TagString: Untagged
@@ -811,6 +812,7 @@ MonoBehaviour:
   gameplayCamera: {fileID: 3264905031190513779}
   creationController: {fileID: 512684838424836928}
   promptView: {fileID: 0}
+  deletionController: {fileID: 5429047102331691301}
   grappleDuration: 0.65
   grappleArcHeight: 1.15
   travelSpeed: 12
@@ -890,3 +892,25 @@ MonoBehaviour:
   promptView: {fileID: 0}
   previewMaterial: {fileID: 2100000, guid: 9b7a52ee153d0de4898592bb57015ddc, type: 2}
   roomTraversal: {fileID: 0}
+  deletionController: {fileID: 0}
+--- !u!114 &5429047102331691301
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8191574034244779842}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ae8a9c3c7b07450ba050c48c43333d9c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: WhatLightRemains.Runtime::WhatLightRemains.Runtime.RoomDeletionController
+  input: {fileID: 1976384643049066167}
+  roomTracker: {fileID: 4093413171902578324}
+  playerLook: {fileID: 7499881474968383807}
+  gameplayCamera: {fileID: 3264905031190513779}
+  roomLayout: {fileID: 0}
+  promptView: {fileID: 0}
+  outlineMaterial: {fileID: 2100000, guid: 53652553050b7924592e1b169048d347, type: 2}
+  creationController: {fileID: 512684838424836928}
+  roomTraversal: {fileID: 4887788067124057916}

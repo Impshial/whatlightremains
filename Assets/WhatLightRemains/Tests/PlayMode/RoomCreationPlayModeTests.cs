@@ -27,10 +27,11 @@ namespace WhatLightRemains.Tests
 
             Assert.That(creation.EnterCreateMode(), Is.True);
             Assert.That(prompt.CurrentText, Is.EqualTo(RoomCreationPromptView.CreateText));
-            Assert.That(prompt.RotationLabel.gameObject.activeSelf, Is.True);
+            Assert.That(prompt.RotationLabel.gameObject.activeSelf, Is.False);
             Assert.That(prompt.CurrentRotationText, Is.EqualTo(RoomCreationPromptView.RotationIdleText));
             Ray eastRay = CenterRay(layout.PrimaryRoom, CubeRoomWall.East);
             Assert.That(creation.RefreshTarget(eastRay), Is.True);
+            Assert.That(prompt.RotationLabel.gameObject.activeSelf, Is.True);
             Assert.That(creation.HasValidPreview, Is.True);
             Assert.That(creation.Candidate.GridCell, Is.EqualTo(Vector2Int.right));
             Assert.That(creation.PreviewObject.GetComponentsInChildren<LineRenderer>(true), Has.Length.EqualTo(12));
@@ -51,6 +52,7 @@ namespace WhatLightRemains.Tests
             Assert.That(layout.Rooms, Has.Count.EqualTo(2));
             Assert.That(creation.IsCreateMode, Is.False);
             Assert.That(creation.HasValidPreview, Is.False);
+            Assert.That(FindInScene<RoomCreationPromptView>().Single().RotationLabel.gameObject.activeSelf, Is.False);
             Assert.That(creation.PreviewObject, Is.Null);
             Assert.That(prompt.CurrentText, Is.EqualTo(RoomCreationPromptView.NormalText));
             Assert.That(prompt.RotationLabel.gameObject.activeSelf, Is.False);
@@ -131,6 +133,69 @@ namespace WhatLightRemains.Tests
             {
                 FindInScene<PlayerRoomTracker>().Single().EnterRoom(room);
             }
+        }
+
+        [UnityTest]
+        public IEnumerator DeleteMode_HighlightsAdjacentRoomDeletesItAndStaysActive()
+        {
+            yield return LoadFoundation();
+            CubeRoomClusterGenerator layout = FindInScene<CubeRoomClusterGenerator>().Single();
+            RoomDeletionController deletion = FindInScene<RoomDeletionController>().Single();
+            RoomCreationPromptView prompt = FindInScene<RoomCreationPromptView>().Single();
+            deletion.GetComponent<PlayerLook>().CaptureCursor();
+            Assert.That(layout.TryPlaceRoom(layout.PrimaryRoom, CubeRoomWall.East, out CubeRoom created), Is.True);
+
+            Assert.That(deletion.EnterDeleteMode(), Is.True);
+            Assert.That(prompt.InstructionLabel.gameObject.activeSelf, Is.False);
+            Assert.That(prompt.DeleteInstructionLabel.text, Is.EqualTo(RoomCreationPromptView.DeleteModeText));
+            Assert.That(deletion.RefreshTarget(CenterRay(layout.PrimaryRoom, CubeRoomWall.East)), Is.True);
+            Assert.That(deletion.FocusedRoom, Is.SameAs(created));
+            Assert.That(prompt.CurrentRotationText, Is.EqualTo(RoomCreationPromptView.DeleteFocusText));
+            Assert.That(prompt.RotationLabel.gameObject.activeSelf, Is.True);
+            Assert.That(deletion.HighlightObject.GetComponentsInChildren<LineRenderer>(true), Has.Length.EqualTo(12));
+            Assert.That(deletion.HighlightObject.GetComponentsInChildren<Collider>(true), Is.Empty);
+            Assert.That(deletion.HighlightObject.GetComponentsInChildren<Light>(true), Is.Empty);
+
+            Assert.That(deletion.TryDeleteFocusedRoom(), Is.True);
+            yield return null;
+            Assert.That(layout.Rooms, Has.Count.EqualTo(1));
+            Assert.That(layout.PrimaryRoom.GetConnectedRoom(CubeRoomWall.East), Is.Null);
+            Assert.That(layout.PrimaryRoom.GetWallBoundary(CubeRoomWall.East).ClosedGlassRenderer.enabled, Is.True);
+            Assert.That(deletion.IsDeleteMode, Is.True);
+            Assert.That(deletion.FocusedRoom, Is.Null);
+            Assert.That(prompt.RotationLabel.gameObject.activeSelf, Is.False);
+
+            deletion.CancelDeleteMode();
+            Assert.That(prompt.InstructionLabel.gameObject.activeSelf, Is.True);
+            Assert.That(prompt.DeleteInstructionLabel.text, Is.EqualTo(RoomCreationPromptView.NormalDeleteText));
+        }
+
+        [UnityTest]
+        public IEnumerator DeleteMode_NeverTargetsPrimaryButCanTargetVerticalNonPrimaryNeighbor()
+        {
+            yield return LoadFoundation();
+            CubeRoomClusterGenerator layout = FindInScene<CubeRoomClusterGenerator>().Single();
+            PlayerRoomTracker tracker = FindInScene<PlayerRoomTracker>().Single();
+            RoomDeletionController deletion = FindInScene<RoomDeletionController>().Single();
+            deletion.GetComponent<PlayerLook>().CaptureCursor();
+
+            Assert.That(layout.TryGetPlacementCandidate(layout.PrimaryRoom, CubeRoomFace.Ceiling,
+                RoomOrientation.Identity, out RoomPlacementCandidate firstCandidate), Is.True);
+            Assert.That(layout.TryPlaceRoom(firstCandidate, out CubeRoom firstUpper), Is.True);
+            Assert.That(layout.TryGetPlacementCandidate(firstUpper, CubeRoomFace.Ceiling,
+                RoomOrientation.Identity, out RoomPlacementCandidate secondCandidate), Is.True);
+            Assert.That(layout.TryPlaceRoom(secondCandidate, out CubeRoom secondUpper), Is.True);
+            Assert.That(deletion.EnterDeleteMode(), Is.True);
+
+            tracker.EnterRoom(firstUpper);
+            Ray towardPrimary = new Ray(firstUpper.transform.TransformPoint(new Vector3(0f, 4f, 0f)), -firstUpper.RoomUp);
+            Assert.That(deletion.RefreshTarget(towardPrimary), Is.False);
+            Assert.That(deletion.FocusedRoom, Is.Null);
+
+            tracker.EnterRoom(secondUpper);
+            Ray towardFirst = new Ray(secondUpper.transform.TransformPoint(new Vector3(0f, 4f, 0f)), -secondUpper.RoomUp);
+            Assert.That(deletion.RefreshTarget(towardFirst), Is.True);
+            Assert.That(deletion.FocusedRoom, Is.SameAs(firstUpper));
         }
 
         [UnityTest]

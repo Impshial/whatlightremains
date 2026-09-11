@@ -28,6 +28,8 @@ namespace WhatLightRemains.Tests
         private const string StripHousingMaterialPath = "Assets/WhatLightRemains/Generated/Materials/LightStripHousing.mat";
         private const string BaseRailMaterialPath = "Assets/WhatLightRemains/Generated/Materials/BaseRail.mat";
         private const string RoomPreviewMaterialPath = "Assets/WhatLightRemains/Generated/Materials/RoomPreview.mat";
+        private const string RoomDeleteOutlineMaterialPath = "Assets/WhatLightRemains/Generated/Materials/RoomDeleteOutline.mat";
+        private const string MenuFontPath = "Assets/WhatLightRemains/Art/Fonts/Raleway-Light.otf";
         private const string FloorBaseColorPath = "Assets/WhatLightRemains/Art/Textures/Floor/Floor_BaseColor.png";
         private const string FloorNormalPath = "Assets/WhatLightRemains/Art/Textures/Floor/Floor_Normal.png";
         private const string GlassDetailPath = "Assets/WhatLightRemains/Art/Textures/Glass/Glass_Detail.png";
@@ -94,6 +96,7 @@ namespace WhatLightRemains.Tests
             Assert.That(player.GetComponentInChildren<FirstPersonInput>(true), Is.Not.Null);
             Assert.That(player.GetComponentInChildren<PlayerRoomTracker>(true), Is.Not.Null);
             Assert.That(player.GetComponentInChildren<RoomCreationController>(true), Is.Not.Null);
+            Assert.That(player.GetComponentInChildren<RoomDeletionController>(true), Is.Not.Null);
             Assert.That(player.GetComponent<KinematicCapsuleMover>(), Is.Not.Null);
             Assert.That(player.GetComponent<PlayerGravityAlignment>(), Is.Not.Null);
             PlayerRoomTraversal traversal = player.GetComponent<PlayerRoomTraversal>();
@@ -148,6 +151,9 @@ namespace WhatLightRemains.Tests
             RoomCreationPromptView creationPrompt = hotbar.GetComponentInChildren<RoomCreationPromptView>(true);
             Assert.That(creationPrompt, Is.Not.Null);
             Assert.That(creationPrompt.CurrentText, Is.EqualTo(RoomCreationPromptView.NormalText));
+            Assert.That(creationPrompt.DeleteInstructionLabel, Is.Not.Null);
+            Assert.That(creationPrompt.CurrentDeleteText, Is.EqualTo(RoomCreationPromptView.NormalDeleteText));
+            Assert.That(creationPrompt.DeleteInstructionLabel.gameObject.activeSelf, Is.True);
             Assert.That(creationPrompt.InstructionLabel.rectTransform.anchorMin, Is.EqualTo(Vector2.zero));
             Assert.That(creationPrompt.InstructionLabel.rectTransform.anchorMax, Is.EqualTo(Vector2.zero));
             Assert.That(creationPrompt.RotationLabel, Is.Not.Null);
@@ -180,12 +186,23 @@ namespace WhatLightRemains.Tests
                 Assert.That(controller.GameplaySceneName, Is.EqualTo("Foundation"));
                 Assert.That(controller.FadeDuration, Is.EqualTo(0.8f).Within(0.001f));
                 Assert.That(controller.NewGameButton.GetComponentInChildren<Text>(true).text, Is.EqualTo("New Game"));
+                Text menuLabel = controller.NewGameButton.GetComponent<Text>();
+                Assert.That(menuLabel, Is.Not.Null);
+                Assert.That(menuLabel.font, Is.SameAs(LoadRequiredAsset<Font>(MenuFontPath)));
+                Assert.That(controller.NewGameButton.GetComponent<Image>(), Is.Null,
+                    "The New Game control must be clickable text without a visible panel.");
+                Assert.That(controller.NewGameButton.GetComponent<Outline>(), Is.Null);
+                Assert.That(controller.NewGameButton.GetComponent<MainMenuTextHover>(), Is.Not.Null);
 
                 RawImage menuImage = FindInScene<RawImage>(scene).Single();
                 Assert.That(menuImage.texture, Is.SameAs(artworkAsset));
                 Assert.That(menuImage.raycastTarget, Is.False);
                 Assert.That(menuImage.GetComponent<AspectRatioFitter>().aspectMode,
                     Is.EqualTo(AspectRatioFitter.AspectMode.FitInParent));
+                RectTransform artworkSafeArea = menuImage.rectTransform.parent as RectTransform;
+                Assert.That(artworkSafeArea, Is.Not.Null);
+                Assert.That(artworkSafeArea.anchorMin, Is.EqualTo(new Vector2(0.05f, 0.05f)));
+                Assert.That(artworkSafeArea.anchorMax, Is.EqualTo(new Vector2(0.95f, 0.95f)));
                 Assert.That(FindInScene<EventSystem>(scene), Has.Count.EqualTo(1));
                 Assert.That(FindInScene<InputSystemUIInputModule>(scene), Has.Count.EqualTo(1));
 
@@ -230,6 +247,8 @@ namespace WhatLightRemains.Tests
                 Is.SupersetOf(new[] { "<Keyboard>/leftAlt", "<Keyboard>/rightAlt" }));
             Assert.That(actions.FindAction("Player/RotationScroll", true).bindings.Select(binding => binding.path), Does.Contain("<Mouse>/scroll"));
             Assert.That(actions.FindAction("Player/Traverse", true).bindings.Select(binding => binding.path), Does.Contain("<Keyboard>/e"));
+            Assert.That(actions.FindAction("Player/ToggleDelete", true).bindings.Select(binding => binding.path), Does.Contain("<Keyboard>/delete"));
+            Assert.That(actions.FindAction("Player/DeleteRoom", true).bindings.Select(binding => binding.path), Does.Contain("<Mouse>/rightButton"));
 
             Material preview = LoadRequiredAsset<Material>(RoomPreviewMaterialPath);
             Assert.That(preview.shader.name, Is.EqualTo("Universal Render Pipeline/Unlit"));
@@ -238,6 +257,10 @@ namespace WhatLightRemains.Tests
             Assert.That(preview.GetFloat("_Blend"), Is.EqualTo(0f), "Ghost preview must use alpha blending, not additive blending.");
             Assert.That(preview.GetFloat("_DstBlend"), Is.EqualTo((float)BlendMode.OneMinusSrcAlpha));
             Assert.That(preview.GetColor("_BaseColor").a, Is.LessThanOrEqualTo(0.3f));
+
+            Material deleteOutline = LoadRequiredAsset<Material>(RoomDeleteOutlineMaterialPath);
+            Assert.That(deleteOutline.shader.name, Is.EqualTo("Universal Render Pipeline/Unlit"));
+            Assert.That(deleteOutline.GetColor("_BaseColor").r, Is.GreaterThan(1f));
 
             Assert.That(
                 EditorBuildSettings.TryGetConfigObject("com.unity.input.settings.actions", out InputActionAsset configuredActions),

@@ -32,6 +32,7 @@ namespace WhatLightRemains.Runtime
         [SerializeField] private Light[] lightsB = Array.Empty<Light>();
 
         private readonly List<GameObject> generated = new List<GameObject>();
+        private readonly List<Renderer> glassRenderers = new List<Renderer>(4);
         private MaterialPropertyBlock propertyBlock;
         private CubeRoom highlightedFrom;
         private bool ownsBoundaryOverrides;
@@ -41,6 +42,7 @@ namespace WhatLightRemains.Runtime
         public CubeRoomFace FaceA => faceA;
         public CubeRoomFace FaceB => faceB;
         public RoomAperture Aperture => aperture;
+        public IReadOnlyList<Renderer> GlassRenderers => glassRenderers;
 
         public CubeRoom GetOtherRoom(CubeRoom room) => room == roomA ? roomB : room == roomB ? roomA : null;
         public CubeRoomFace GetFace(CubeRoom room) => room == roomA ? faceA : room == roomB ? faceB : default;
@@ -140,8 +142,8 @@ namespace WhatLightRemains.Runtime
         {
             if (maxU - minU <= 0.001f || maxV - minV <= 0.001f) return;
             Vector3 center = planeCenter + u * ((minU + maxU) * 0.5f) + v * ((minV + maxV) * 0.5f);
-            CreateCube(objectName, center, u, v, n,
-                new Vector3(maxU - minU, maxV - minV, BoundaryThickness), material, true);
+            glassRenderers.Add(CreateCube(objectName, center, u, v, n,
+                new Vector3(maxU - minU, maxV - minV, BoundaryThickness), material, true));
         }
 
         private void CreateRail(string objectName, Vector3 planeCenter, Vector3 u, Vector3 v, Vector3 n,
@@ -347,6 +349,7 @@ namespace WhatLightRemains.Runtime
                 if (Application.isPlaying) Destroy(item); else DestroyImmediate(item);
             }
             generated.Clear();
+            glassRenderers.Clear();
         }
     }
 }

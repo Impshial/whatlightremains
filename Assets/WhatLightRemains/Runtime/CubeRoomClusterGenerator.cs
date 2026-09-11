@@ -134,6 +134,29 @@ namespace WhatLightRemains.Runtime
             return room != null && cellByRoom.ContainsKey(room);
         }
 
+        public bool CanDeleteRoom(CubeRoom room)
+        {
+            EnsureInitialized();
+            return room != null && room != primaryRoom && cellByRoom.ContainsKey(room);
+        }
+
+        public bool TryDeleteRoom(CubeRoom room)
+        {
+            if (!CanDeleteRoom(room)) return false;
+
+            // Shared passages temporarily own portions of both rooms' boundaries. Release
+            // those overrides before removing the room, then rebuild the surviving topology
+            // so every exposed face immediately becomes a complete boundary again.
+            ClearPassages();
+            UnregisterRoom(room);
+            room.ResetFaceConnections();
+            room.gameObject.SetActive(false);
+            DestroyRoomObject(room.gameObject);
+            ConfigureSharedBoundaries();
+            RoomsChanged?.Invoke();
+            return true;
+        }
+
         public bool TryGetPlacementCandidate(CubeRoom sourceRoom, CubeRoomWall sourceWall, out RoomPlacementCandidate candidate)
         {
             candidate = default;

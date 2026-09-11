@@ -37,6 +37,7 @@ namespace WhatLightRemains.Editor
         private const string StripHousingMaterialPath = MaterialsFolder + "/LightStripHousing.mat";
         private const string BaseRailMaterialPath = MaterialsFolder + "/BaseRail.mat";
         private const string RoomPreviewMaterialPath = MaterialsFolder + "/RoomPreview.mat";
+        private const string RoomDeleteOutlineMaterialPath = MaterialsFolder + "/RoomDeleteOutline.mat";
         private const string HandMaterialPath = MaterialsFolder + "/Hand.mat";
         private const string ToolMaterialPath = MaterialsFolder + "/Tool.mat";
         private const string TestMaterialPath = MaterialsFolder + "/ValidationSurface.mat";
@@ -55,6 +56,7 @@ namespace WhatLightRemains.Editor
         private const string GlassDetailTexturePath = "Assets/WhatLightRemains/Art/Textures/Glass/Glass_Detail.png";
         private const string GlassNormalTexturePath = "Assets/WhatLightRemains/Art/Textures/Glass/Glass_Normal.png";
         private const string MenuArtworkTexturePath = "Assets/WhatLightRemains/Art/Menu/WhatLightRemainsTitle.png";
+        private const string MenuFontPath = "Assets/WhatLightRemains/Art/Fonts/Raleway-Light.otf";
 
         private const string PcRendererPath = "Assets/Settings/PC_Renderer.asset";
         private const string PcPipelinePath = "Assets/Settings/PC_RPAsset.asset";
@@ -104,6 +106,8 @@ namespace WhatLightRemains.Editor
                 Texture2D glassDetail = ConfigureSurfaceTexture(GlassDetailTexturePath, false);
                 Texture2D glassNormal = ConfigureSurfaceTexture(GlassNormalTexturePath, true);
                 Texture2D menuArtwork = ConfigureMenuArtwork(MenuArtworkTexturePath);
+                Font menuFont = AssetDatabase.LoadAssetAtPath<Font>(MenuFontPath);
+                if (menuFont == null) throw new InvalidOperationException("Missing main-menu font: " + MenuFontPath);
 
                 Material glass = CreateGlassMaterial(glassDetail, glassNormal);
                 Material floor = CreateFloorMaterial(floorBaseColor, floorNormal);
@@ -111,6 +115,7 @@ namespace WhatLightRemains.Editor
                 Material stripHousing = CreateStripHousingMaterial();
                 Material baseRail = CreateBaseRailMaterial();
                 Material roomPreview = CreateRoomPreviewMaterial();
+                Material roomDeleteOutline = CreateRoomDeleteOutlineMaterial();
                 Material hand = CreateLitMaterial(HandMaterialPath, new Color(0.62f, 0.31f, 0.20f, 1f), 0.38f);
                 Material tool = CreateLitMaterial(ToolMaterialPath, new Color(0.18f, 0.24f, 0.32f, 1f), 0.62f);
                 Material validation = CreateLitMaterial(TestMaterialPath, new Color(0.50f, 0.51f, 0.53f, 1f), 0.30f);
@@ -118,10 +123,10 @@ namespace WhatLightRemains.Editor
                 Sprite toolIcon = CreateToolIcon();
 
                 GameObject cubePrefab = CreateCubePrefab(glass, floor, strip, stripHousing, baseRail);
-                GameObject playerPrefab = CreatePlayerPrefab(inputActions, hand, tool, roomPreview, layers);
+                GameObject playerPrefab = CreatePlayerPrefab(inputActions, hand, tool, roomPreview, roomDeleteOutline, layers);
                 GameObject hotbarPrefab = CreateHotbarPrefab(toolIcon);
 
-                CreateMainMenuScene(menuArtwork);
+                CreateMainMenuScene(menuArtwork, menuFont);
                 CreateFoundationScene(cubePrefab, playerPrefab, hotbarPrefab);
                 CreateValidationScene(cubePrefab, playerPrefab, hotbarPrefab, validation);
                 ConfigureBuildScenes();
@@ -591,6 +596,28 @@ namespace WhatLightRemains.Editor
             return material;
         }
 
+        private static Material CreateRoomDeleteOutlineMaterial()
+        {
+            Material material = LoadOrCreateMaterial(RoomDeleteOutlineMaterialPath, "Universal Render Pipeline/Unlit");
+            Color deletionRed = new Color(5f, 0.015f, 0.01f, 1f);
+            SetColor(material, "_BaseColor", deletionRed);
+            SetColor(material, "_Color", deletionRed);
+            SetFloat(material, "_Surface", 0f);
+            SetFloat(material, "_Blend", 0f);
+            SetFloat(material, "_Cull", (float)CullMode.Off);
+            SetFloat(material, "_AlphaClip", 0f);
+            SetFloat(material, "_SrcBlend", (float)BlendMode.One);
+            SetFloat(material, "_DstBlend", (float)BlendMode.Zero);
+            SetFloat(material, "_ZWrite", 1f);
+            material.SetOverrideTag("RenderType", "Opaque");
+            material.DisableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            material.DisableKeyword("_ALPHATEST_ON");
+            material.renderQueue = (int)RenderQueue.Geometry + 20;
+            material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
+            EditorUtility.SetDirty(material);
+            return material;
+        }
+
         private static Material CreateLitMaterial(string path, Color color, float smoothness)
         {
             Material material = LoadOrCreateMaterial(path, "Universal Render Pipeline/Lit");
@@ -896,6 +923,7 @@ namespace WhatLightRemains.Editor
             Material hand,
             Material tool,
             Material roomPreview,
+            Material roomDeleteOutline,
             LayerIds layers)
         {
             GameObject root = new GameObject("Player");
@@ -922,6 +950,7 @@ namespace WhatLightRemains.Editor
                 FirstPersonMotor motor = root.AddComponent<FirstPersonMotor>();
                 PlayerLook look = root.AddComponent<PlayerLook>();
                 RoomCreationController roomCreation = root.AddComponent<RoomCreationController>();
+                RoomDeletionController roomDeletion = root.AddComponent<RoomDeletionController>();
                 input.Configure(inputActions);
                 mover.Configure(capsule, body);
                 mover.SetDimensions(1.8f, 0.30f, true);
@@ -981,7 +1010,8 @@ namespace WhatLightRemains.Editor
                 look.FieldOfView = 75f;
                 motor.Configure(mover, input, tracker, alignment, roomTraversal, yaw);
                 roomCreation.Configure(input, tracker, look, mainCamera, roomPreview);
-                roomTraversal.Configure(input, tracker, mover, alignment, mainCamera, look, roomCreation, null);
+                roomDeletion.Configure(input, tracker, look, mainCamera, roomDeleteOutline, roomCreation, roomTraversal);
+                roomTraversal.Configure(input, tracker, mover, alignment, mainCamera, look, roomCreation, null, roomDeletion);
                 return PrefabUtility.SaveAsPrefabAsset(root, PlayerPrefabPath);
             }
             finally
@@ -1064,11 +1094,27 @@ namespace WhatLightRemains.Editor
                 instructionRect.anchorMin = Vector2.zero;
                 instructionRect.anchorMax = Vector2.zero;
                 instructionRect.pivot = Vector2.zero;
-                instructionRect.anchoredPosition = new Vector2(28f, 26f);
-                instructionRect.sizeDelta = new Vector2(440f, 44f);
+                instructionRect.anchoredPosition = new Vector2(28f, 51f);
+                instructionRect.sizeDelta = new Vector2(440f, 30f);
                 Outline instructionOutline = creationInstruction.gameObject.AddComponent<Outline>();
                 instructionOutline.effectColor = new Color(0f, 0f, 0f, 0.92f);
                 instructionOutline.effectDistance = new Vector2(2f, -2f);
+
+                Text deletionInstruction = CreateUiText(
+                    "Room Deletion Instruction",
+                    canvasObject.transform,
+                    RoomCreationPromptView.NormalDeleteText,
+                    20,
+                    TextAnchor.LowerLeft);
+                RectTransform deletionRect = deletionInstruction.rectTransform;
+                deletionRect.anchorMin = Vector2.zero;
+                deletionRect.anchorMax = Vector2.zero;
+                deletionRect.pivot = Vector2.zero;
+                deletionRect.anchoredPosition = new Vector2(28f, 23f);
+                deletionRect.sizeDelta = new Vector2(440f, 30f);
+                Outline deletionOutline = deletionInstruction.gameObject.AddComponent<Outline>();
+                deletionOutline.effectColor = new Color(0f, 0f, 0f, 0.92f);
+                deletionOutline.effectDistance = new Vector2(2f, -2f);
 
                 Text rotationInstruction = CreateUiText(
                     "Room Rotation Instruction",
@@ -1104,6 +1150,7 @@ namespace WhatLightRemains.Editor
                 traversalOutline.effectDistance = new Vector2(2f, -2f);
                 root.GetComponent<RoomCreationPromptView>().Configure(
                     creationInstruction,
+                    deletionInstruction,
                     rotationInstruction,
                     traversalInstruction);
 
@@ -1197,7 +1244,7 @@ namespace WhatLightRemains.Editor
             }
         }
 
-        private static void CreateMainMenuScene(Texture2D menuArtwork)
+        private static void CreateMainMenuScene(Texture2D menuArtwork, Font menuFont)
         {
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             ConfigureBlackEnvironment();
@@ -1231,13 +1278,21 @@ namespace WhatLightRemains.Editor
             GameObject backdrop = CreateUiImage("Black Backdrop", canvasObject.transform, Color.black);
             StretchToParent(backdrop.GetComponent<RectTransform>(), 0f);
 
+            GameObject artworkSafeArea = new GameObject("Artwork Safe Area", typeof(RectTransform));
+            artworkSafeArea.transform.SetParent(canvasObject.transform, false);
+            RectTransform artworkSafeRect = artworkSafeArea.GetComponent<RectTransform>();
+            artworkSafeRect.anchorMin = new Vector2(0.05f, 0.05f);
+            artworkSafeRect.anchorMax = new Vector2(0.95f, 0.95f);
+            artworkSafeRect.offsetMin = Vector2.zero;
+            artworkSafeRect.offsetMax = Vector2.zero;
+
             GameObject artworkObject = new GameObject(
                 "What Light Remains Artwork",
                 typeof(RectTransform),
                 typeof(CanvasRenderer),
                 typeof(RawImage),
                 typeof(AspectRatioFitter));
-            artworkObject.transform.SetParent(canvasObject.transform, false);
+            artworkObject.transform.SetParent(artworkSafeArea.transform, false);
             RectTransform artworkRect = artworkObject.GetComponent<RectTransform>();
             StretchToParent(artworkRect, 0f);
             RawImage artwork = artworkObject.GetComponent<RawImage>();
@@ -1252,41 +1307,31 @@ namespace WhatLightRemains.Editor
                 "New Game Button",
                 typeof(RectTransform),
                 typeof(CanvasRenderer),
-                typeof(Image),
+                typeof(Text),
                 typeof(Button),
-                typeof(Outline));
+                typeof(MainMenuTextHover));
             buttonObject.transform.SetParent(canvasObject.transform, false);
             RectTransform buttonRect = buttonObject.GetComponent<RectTransform>();
             buttonRect.anchorMin = new Vector2(0.5f, 0f);
             buttonRect.anchorMax = new Vector2(0.5f, 0f);
             buttonRect.pivot = new Vector2(0.5f, 0f);
-            buttonRect.anchoredPosition = new Vector2(0f, 34f);
-            buttonRect.sizeDelta = new Vector2(280f, 64f);
-            Image buttonImage = buttonObject.GetComponent<Image>();
-            buttonImage.color = new Color(0.015f, 0.017f, 0.02f, 0.92f);
-            buttonImage.raycastTarget = true;
-            Outline buttonOutline = buttonObject.GetComponent<Outline>();
-            buttonOutline.effectColor = new Color(0.94f, 0.91f, 0.82f, 0.9f);
-            buttonOutline.effectDistance = new Vector2(1f, -1f);
+            buttonRect.anchoredPosition = new Vector2(0f, 30f);
+            buttonRect.sizeDelta = new Vector2(320f, 72f);
+            Text buttonLabel = buttonObject.GetComponent<Text>();
+            buttonLabel.font = menuFont;
+            buttonLabel.fontSize = 30;
+            buttonLabel.alignment = TextAnchor.MiddleCenter;
+            buttonLabel.text = "New Game";
+            buttonLabel.raycastTarget = true;
             Button newGameButton = buttonObject.GetComponent<Button>();
-            ColorBlock colors = newGameButton.colors;
-            colors.normalColor = Color.white;
-            colors.highlightedColor = new Color(1f, 0.96f, 0.86f, 1f);
-            colors.pressedColor = new Color(0.72f, 0.76f, 0.82f, 1f);
-            colors.selectedColor = colors.highlightedColor;
-            colors.disabledColor = new Color(0.45f, 0.45f, 0.45f, 0.7f);
-            colors.colorMultiplier = 1f;
-            colors.fadeDuration = 0.12f;
-            newGameButton.colors = colors;
-
-            Text buttonLabel = CreateUiText(
-                "Label",
-                buttonObject.transform,
-                "New Game",
-                27,
-                TextAnchor.MiddleCenter);
-            StretchToParent(buttonLabel.rectTransform, 4f);
-            buttonLabel.color = new Color(0.98f, 0.96f, 0.90f, 1f);
+            newGameButton.targetGraphic = buttonLabel;
+            newGameButton.transition = Selectable.Transition.None;
+            buttonObject.GetComponent<MainMenuTextHover>().Configure(
+                buttonLabel,
+                new Color(0.90f, 0.87f, 0.78f, 0.82f),
+                new Color(0.98f, 0.96f, 0.90f, 1f),
+                1.025f,
+                0.12f);
 
             GameObject eventSystemObject = new GameObject(
                 "EventSystem",
@@ -1325,6 +1370,9 @@ namespace WhatLightRemains.Editor
             tracker.GetComponent<RoomCreationController>().Initialize(
                 cluster,
                 hotbar.GetComponent<RoomCreationPromptView>());
+            tracker.GetComponent<RoomDeletionController>().Initialize(
+                cluster,
+                hotbar.GetComponent<RoomCreationPromptView>());
             tracker.GetComponent<PlayerRoomTraversal>().Configure(
                 tracker.GetComponent<FirstPersonInput>(),
                 tracker,
@@ -1333,7 +1381,8 @@ namespace WhatLightRemains.Editor
                 tracker.GetComponentInChildren<Camera>(),
                 tracker.GetComponent<PlayerLook>(),
                 tracker.GetComponent<RoomCreationController>(),
-                hotbar.GetComponent<RoomCreationPromptView>());
+                hotbar.GetComponent<RoomCreationPromptView>(),
+                tracker.GetComponent<RoomDeletionController>());
             EditorSceneManager.SaveScene(scene, FoundationScenePath);
         }
 
@@ -2008,7 +2057,9 @@ namespace WhatLightRemains.Editor
                 { ""name"": ""RotateModifier"", ""type"": ""Button"", ""id"": ""23d2106b-77e8-4f37-8a68-4c8e163cfed4"", ""expectedControlType"": ""Button"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": true },
                 { ""name"": ""AlternateRotationAxis"", ""type"": ""Button"", ""id"": ""05e33d90-555f-486f-aa8a-87a8f4818763"", ""expectedControlType"": ""Button"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": true },
                 { ""name"": ""RotationScroll"", ""type"": ""Value"", ""id"": ""348de50f-ebd6-43cc-a07c-349b7b54bfa9"", ""expectedControlType"": ""Vector2"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": true },
-                { ""name"": ""Traverse"", ""type"": ""Button"", ""id"": ""7f634884-4d48-47e8-9681-e021214690e1"", ""expectedControlType"": ""Button"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": false }
+                { ""name"": ""Traverse"", ""type"": ""Button"", ""id"": ""7f634884-4d48-47e8-9681-e021214690e1"", ""expectedControlType"": ""Button"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": false },
+                { ""name"": ""ToggleDelete"", ""type"": ""Button"", ""id"": ""879bd2db-a10e-44bd-a6e4-535ea562521c"", ""expectedControlType"": ""Button"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": false },
+                { ""name"": ""DeleteRoom"", ""type"": ""Button"", ""id"": ""7b4df604-8f24-4501-8d67-326d74f0fc91"", ""expectedControlType"": ""Button"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": false }
             ],
             ""bindings"": [
                 { ""name"": ""WASD"", ""id"": ""547d0149-dfbb-4be4-b147-475b0ceaa247"", ""path"": ""2DVector"", ""interactions"": """", ""processors"": """", ""groups"": """", ""action"": ""Move"", ""isComposite"": true, ""isPartOfComposite"": false },
@@ -2028,7 +2079,9 @@ namespace WhatLightRemains.Editor
                 { ""name"": """", ""id"": ""60b07283-3630-407e-abee-0b6e57b8f4a1"", ""path"": ""<Keyboard>/leftAlt"", ""interactions"": """", ""processors"": """", ""groups"": """", ""action"": ""AlternateRotationAxis"", ""isComposite"": false, ""isPartOfComposite"": false },
                 { ""name"": """", ""id"": ""9707ed9c-0e82-48e5-9baa-29e43097d73b"", ""path"": ""<Keyboard>/rightAlt"", ""interactions"": """", ""processors"": """", ""groups"": """", ""action"": ""AlternateRotationAxis"", ""isComposite"": false, ""isPartOfComposite"": false },
                 { ""name"": """", ""id"": ""34b638e9-cfc2-4ba5-87a4-084f71cd3f84"", ""path"": ""<Mouse>/scroll"", ""interactions"": """", ""processors"": """", ""groups"": """", ""action"": ""RotationScroll"", ""isComposite"": false, ""isPartOfComposite"": false },
-                { ""name"": """", ""id"": ""5ec9e9cf-86bd-4b06-b63d-03f5db39ef34"", ""path"": ""<Keyboard>/e"", ""interactions"": """", ""processors"": """", ""groups"": """", ""action"": ""Traverse"", ""isComposite"": false, ""isPartOfComposite"": false }
+                { ""name"": """", ""id"": ""5ec9e9cf-86bd-4b06-b63d-03f5db39ef34"", ""path"": ""<Keyboard>/e"", ""interactions"": """", ""processors"": """", ""groups"": """", ""action"": ""Traverse"", ""isComposite"": false, ""isPartOfComposite"": false },
+                { ""name"": """", ""id"": ""052ce469-3af8-4414-90b8-a69c8196c8ab"", ""path"": ""<Keyboard>/delete"", ""interactions"": ""Press"", ""processors"": """", ""groups"": """", ""action"": ""ToggleDelete"", ""isComposite"": false, ""isPartOfComposite"": false },
+                { ""name"": """", ""id"": ""db7eb8aa-f86d-4652-855c-73b476c50d52"", ""path"": ""<Mouse>/rightButton"", ""interactions"": ""Press"", ""processors"": """", ""groups"": """", ""action"": ""DeleteRoom"", ""isComposite"": false, ""isPartOfComposite"": false }
             ]
         }
     ],

@@ -34,6 +34,7 @@ namespace WhatLightRemains.Tests
             CubeRoomClusterGenerator layout = FindInScene<CubeRoomClusterGenerator>(loadedScene).Single();
             PlayerRoomTracker tracker = FindInScene<PlayerRoomTracker>(loadedScene).Single();
             RoomCreationController creation = FindInScene<RoomCreationController>(loadedScene).Single();
+            RoomDeletionController deletion = FindInScene<RoomDeletionController>(loadedScene).Single();
             RoomCreationPromptView prompt = FindInScene<RoomCreationPromptView>(loadedScene).Single();
 
             Assert.That(rooms, Has.Count.EqualTo(1));
@@ -45,7 +46,11 @@ namespace WhatLightRemains.Tests
             Assert.That(tracker.CurrentRoom, Is.SameAs(layout.PrimaryRoom));
             Assert.That(creation.IsCreateMode, Is.False);
             Assert.That(creation.HasValidPreview, Is.False);
+            Assert.That(deletion.IsDeleteMode, Is.False);
             Assert.That(prompt.CurrentText, Is.EqualTo(RoomCreationPromptView.NormalText));
+            Assert.That(prompt.DeleteInstructionLabel, Is.Not.Null);
+            Assert.That(prompt.CurrentDeleteText, Is.EqualTo(RoomCreationPromptView.NormalDeleteText));
+            Assert.That(prompt.DeleteInstructionLabel.gameObject.activeSelf, Is.True);
             Assert.That(prompt.RotationLabel, Is.Not.Null);
             Assert.That(prompt.RotationLabel.gameObject.activeSelf, Is.False);
             Assert.That(prompt.TraversalLabel, Is.Not.Null);

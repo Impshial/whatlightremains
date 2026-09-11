@@ -15,6 +15,8 @@ Shader "What Light Remains/Light-Transmitting Glass"
         _DistortionBlend("Distortion Blend", Range(0, 1)) = 0.55
         _DistortionMip("Distortion Mip", Range(0, 8)) = 4
         _Translucency("Subtle Translucency", Range(0, 1)) = 0.035
+        [HideInInspector] _WLRDeleteTintColor("Delete Selection Tint", Color) = (1, 0.025, 0.015, 1)
+        [HideInInspector] _WLRDeleteTintStrength("Delete Selection Tint Strength", Range(0, 1)) = 0
 
         [HideInInspector] _SrcBlend("", Float) = 1
         [HideInInspector] _DstBlend("", Float) = 10
@@ -81,6 +83,8 @@ Shader "What Light Remains/Light-Transmitting Glass"
             // generated ClearGlass material asset.
             half _WLRGlassOpacityOverride;
             half _WLRGlassOpacityOverrideEnabled;
+            half4 _WLRDeleteTintColor;
+            half _WLRDeleteTintStrength;
 
             struct Attributes
             {
@@ -152,6 +156,12 @@ Shader "What Light Remains/Light-Transmitting Glass"
                 half3 glassContribution = refractedScene * distortionBlend * (1.0h - translucency)
                     + max(_GlassTint.rgb, 0.0h) * translucency
                     + additiveDetail;
+                // Delete selection changes only the pane's transmitted color. Keeping the
+                // replacement weight unchanged preserves the player's current opacity setting.
+                glassContribution = lerp(
+                    glassContribution,
+                    max(_WLRDeleteTintColor.rgb, 0.0h) * replacementWeight,
+                    saturate(_WLRDeleteTintStrength));
                 return half4(glassContribution, replacementWeight);
             }
             ENDHLSL

@@ -21,6 +21,8 @@ namespace WhatLightRemains.Runtime
         private InputAction alternateRotationAxisAction;
         private InputAction rotationScrollAction;
         private InputAction traverseAction;
+        private InputAction toggleDeleteAction;
+        private InputAction deleteRoomAction;
 
         // Input System 1.20 normalizes wheel deltas to roughly -1..1 by default. Older
         // platform-specific input (notably Windows) can still report +/-120, so rotation
@@ -41,6 +43,10 @@ namespace WhatLightRemains.Runtime
         public bool TraverseHeld => IsPressed(traverseAction) || (Keyboard.current != null && Keyboard.current.eKey.isPressed);
         public bool TraversePressedThisFrame => (traverseAction != null && traverseAction.WasPressedThisFrame())
             || (Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame);
+        public bool ToggleDeletePressedThisFrame => (toggleDeleteAction != null && toggleDeleteAction.WasPressedThisFrame())
+            || (Keyboard.current != null && Keyboard.current.deleteKey.wasPressedThisFrame);
+        public bool DeleteRoomPressedThisFrame => (deleteRoomAction != null && deleteRoomAction.WasPressedThisFrame())
+            || (Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame);
 
         /// <summary>
         /// Converts the current frame's wheel delta into one discrete quarter-turn. Input System
@@ -117,6 +123,8 @@ namespace WhatLightRemains.Runtime
             alternateRotationAxisAction = FindAction(runtimeActions, "Player/AlternateRotationAxis", "Gameplay/AlternateRotationAxis", "AlternateRotationAxis");
             rotationScrollAction = FindAction(runtimeActions, "Player/RotationScroll", "Gameplay/RotationScroll", "RotationScroll");
             traverseAction = FindAction(runtimeActions, "Player/Traverse", "Gameplay/Traverse", "Traverse");
+            toggleDeleteAction = FindAction(runtimeActions, "Player/ToggleDelete", "Gameplay/ToggleDelete", "ToggleDelete");
+            deleteRoomAction = FindAction(runtimeActions, "Player/DeleteRoom", "Gameplay/DeleteRoom", "DeleteRoom");
             runtimeActions.Enable();
         }
 
@@ -141,6 +149,8 @@ namespace WhatLightRemains.Runtime
             alternateRotationAxisAction = null;
             rotationScrollAction = null;
             traverseAction = null;
+            toggleDeleteAction = null;
+            deleteRoomAction = null;
         }
 
         private float ReadRotationScroll()

@@ -14,6 +14,7 @@ namespace WhatLightRemains.Runtime
         [SerializeField] private RoomCreationPromptView promptView;
         [SerializeField] private Material previewMaterial;
         [SerializeField] private PlayerRoomTraversal roomTraversal;
+        [SerializeField] private RoomDeletionController deletionController;
 
         private RoomGhostPreview preview;
         private RoomPlacementCandidate candidate;
@@ -46,7 +47,8 @@ namespace WhatLightRemains.Runtime
         {
             ResolveDependencies();
             if (!GameplayInputIsCaptured() || roomLayout == null || previewMaterial == null
-                || (roomTraversal != null && roomTraversal.IsOwningMovement))
+                || (roomTraversal != null && roomTraversal.IsOwningMovement)
+                || (deletionController != null && deletionController.IsDeleteMode))
             {
                 return false;
             }
@@ -106,6 +108,7 @@ namespace WhatLightRemains.Runtime
 
             candidate = proposed;
             preview.Show(candidate);
+            UpdateRotationPrompt();
             return true;
         }
 
@@ -145,6 +148,7 @@ namespace WhatLightRemains.Runtime
             if (input.ToggleCreatePressedThisFrame)
             {
                 if (roomTraversal != null && roomTraversal.IsOwningMovement) return;
+                if (deletionController != null && deletionController.IsDeleteMode) return;
                 if (IsCreateMode) CancelCreateMode();
                 else EnterCreateMode();
                 return;
@@ -157,7 +161,6 @@ namespace WhatLightRemains.Runtime
                 return;
             }
 
-            UpdateRotationPrompt();
             ApplyRotationInput();
             Ray viewRay = GetCenterViewRay();
             RefreshTarget(viewRay);
@@ -207,6 +210,7 @@ namespace WhatLightRemains.Runtime
             roomLayout ??= FindAnyObjectByType<CubeRoomClusterGenerator>();
             promptView ??= FindAnyObjectByType<RoomCreationPromptView>();
             roomTraversal ??= GetComponent<PlayerRoomTraversal>();
+            deletionController ??= GetComponent<RoomDeletionController>();
         }
 
         private void EnsurePreview()
@@ -258,6 +262,7 @@ namespace WhatLightRemains.Runtime
         {
             promptView?.SetRotationState(
                 IsCreateMode,
+                HasValidPreview,
                 input != null && input.RotateModifierHeld,
                 input != null && input.RotateModifierHeld && input.AlternateRotationAxisHeld);
         }
@@ -281,6 +286,7 @@ namespace WhatLightRemains.Runtime
         {
             candidate = default;
             preview?.Hide();
+            UpdateRotationPrompt();
         }
 
         private void DisposePreview()

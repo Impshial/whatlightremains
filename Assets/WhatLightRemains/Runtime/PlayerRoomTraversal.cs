@@ -20,6 +20,7 @@ namespace WhatLightRemains.Runtime
         [SerializeField] private Camera gameplayCamera;
         [SerializeField] private RoomCreationController creationController;
         [SerializeField] private RoomCreationPromptView promptView;
+        [SerializeField] private RoomDeletionController deletionController;
         [SerializeField, Range(0.15f, 2f)] private float grappleDuration = 0.65f;
         [SerializeField, Min(0f)] private float grappleArcHeight = 1.15f;
         [SerializeField, Min(0.5f)] private float travelSpeed = 12f;
@@ -50,7 +51,8 @@ namespace WhatLightRemains.Runtime
 
         public void Configure(FirstPersonInput inputSource, PlayerRoomTracker tracker,
             KinematicCapsuleMover capsuleMover, PlayerGravityAlignment alignment, Camera camera,
-            PlayerLook look, RoomCreationController creation, RoomCreationPromptView prompt)
+            PlayerLook look, RoomCreationController creation, RoomCreationPromptView prompt,
+            RoomDeletionController deletion = null)
         {
             Unsubscribe();
             input = inputSource;
@@ -61,8 +63,11 @@ namespace WhatLightRemains.Runtime
             playerLook = look;
             creationController = creation;
             promptView = prompt;
+            deletionController = deletion;
             Subscribe();
         }
+
+        public void ClearTargeting() => ClearTarget();
 
         private void Awake()
         {
@@ -99,7 +104,8 @@ namespace WhatLightRemains.Runtime
             }
 
             bool canTarget = input != null && playerLook != null && playerLook.IsCursorCaptured
-                && (creationController == null || !creationController.IsCreateMode);
+                && (creationController == null || !creationController.IsCreateMode)
+                && (deletionController == null || !deletionController.IsDeleteMode);
             if (!canTarget)
             {
                 ClearTarget();
@@ -345,6 +351,7 @@ namespace WhatLightRemains.Runtime
             playerLook ??= GetComponent<PlayerLook>();
             gameplayCamera ??= GetComponentInChildren<Camera>();
             creationController ??= GetComponent<RoomCreationController>();
+            deletionController ??= GetComponent<RoomDeletionController>();
             promptView ??= FindAnyObjectByType<RoomCreationPromptView>();
         }
 

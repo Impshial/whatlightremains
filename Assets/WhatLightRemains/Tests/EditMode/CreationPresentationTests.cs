@@ -34,15 +34,63 @@ namespace WhatLightRemains.Tests
                 RoomCreationPromptView prompt = root.AddComponent<RoomCreationPromptView>();
                 prompt.Configure(instruction, rotation);
 
-                prompt.SetRotationState(false, false, false);
+                prompt.SetRotationState(false, false, false, false);
                 Assert.That(rotation.gameObject.activeSelf, Is.False);
-                prompt.SetRotationState(true, false, false);
+                prompt.SetCreateMode(true);
+                prompt.SetRotationState(true, false, false, false);
+                Assert.That(rotation.gameObject.activeSelf, Is.False,
+                    "Rotation help must remain hidden until a valid ghost is visible.");
+                prompt.SetRotationState(true, true, false, false);
                 Assert.That(rotation.text, Is.EqualTo("Hold Ctrl to Rotate"));
-                prompt.SetRotationState(true, true, false);
+                prompt.SetRotationState(true, true, true, false);
                 Assert.That(rotation.text, Is.EqualTo("<b>Ctrl: Rotate around y-axis</b>\nCtrl+Alt: Rotate around z-axis"));
-                prompt.SetRotationState(true, true, true);
+                prompt.SetRotationState(true, true, true, true);
                 Assert.That(rotation.text, Is.EqualTo("Ctrl: Rotate around y-axis\n<b>Ctrl+Alt: Rotate around z-axis</b>"));
                 Assert.That(rotation.supportRichText, Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void PromptView_TransitionsBetweenDefaultCreateAndDeleteModes()
+        {
+            GameObject root = new GameObject("Prompt Mode Test");
+            try
+            {
+                Text create = NewLabel("Create", root.transform);
+                Text delete = NewLabel("Delete", root.transform);
+                Text context = NewLabel("Context", root.transform);
+                Text traversal = NewLabel("Traversal", root.transform);
+                RoomCreationPromptView prompt = root.AddComponent<RoomCreationPromptView>();
+                prompt.Configure(create, delete, context, traversal);
+
+                Assert.That(create.text, Is.EqualTo(RoomCreationPromptView.NormalText));
+                Assert.That(delete.text, Is.EqualTo(RoomCreationPromptView.NormalDeleteText));
+                Assert.That(create.gameObject.activeSelf, Is.True);
+                Assert.That(delete.gameObject.activeSelf, Is.True);
+
+                prompt.SetCreateMode(true);
+                Assert.That(create.text, Is.EqualTo(RoomCreationPromptView.CreateText));
+                Assert.That(delete.gameObject.activeSelf, Is.False);
+                prompt.SetRotationState(true, false, false, false);
+                Assert.That(context.gameObject.activeSelf, Is.False);
+                prompt.SetRotationState(true, true, false, false);
+                Assert.That(context.gameObject.activeSelf, Is.True);
+
+                prompt.SetDeleteMode(true);
+                Assert.That(create.gameObject.activeSelf, Is.False);
+                Assert.That(delete.text, Is.EqualTo(RoomCreationPromptView.DeleteModeText));
+                prompt.SetDeleteTarget(true);
+                Assert.That(context.text, Is.EqualTo(RoomCreationPromptView.DeleteFocusText));
+                Assert.That(context.gameObject.activeSelf, Is.True);
+
+                prompt.SetDeleteMode(false);
+                Assert.That(create.gameObject.activeSelf, Is.True);
+                Assert.That(delete.text, Is.EqualTo(RoomCreationPromptView.NormalDeleteText));
+                Assert.That(context.gameObject.activeSelf, Is.False);
             }
             finally
             {
@@ -151,6 +199,13 @@ namespace WhatLightRemains.Tests
             child.name = name;
             child.transform.SetParent(parent);
             return child;
+        }
+
+        private static Text NewLabel(string name, Transform parent)
+        {
+            Text label = new GameObject(name).AddComponent<Text>();
+            label.transform.SetParent(parent);
+            return label;
         }
 
         private static Transform FindChild(Transform root, string name)
