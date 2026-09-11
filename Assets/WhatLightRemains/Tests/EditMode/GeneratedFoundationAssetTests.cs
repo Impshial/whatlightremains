@@ -5,7 +5,9 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.UI;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.SceneManagement;
@@ -30,9 +32,11 @@ namespace WhatLightRemains.Tests
         private const string FloorNormalPath = "Assets/WhatLightRemains/Art/Textures/Floor/Floor_Normal.png";
         private const string GlassDetailPath = "Assets/WhatLightRemains/Art/Textures/Glass/Glass_Detail.png";
         private const string GlassNormalPath = "Assets/WhatLightRemains/Art/Textures/Glass/Glass_Normal.png";
+        private const string MenuArtworkPath = "Assets/WhatLightRemains/Art/Menu/WhatLightRemainsTitle.png";
         private const string PcRendererPath = "Assets/Settings/PC_Renderer.asset";
         private const string PcPipelinePath = "Assets/Settings/PC_RPAsset.asset";
         private const string FoundationScenePath = "Assets/WhatLightRemains/Generated/Scenes/Foundation.unity";
+        private const string MainMenuScenePath = "Assets/WhatLightRemains/Generated/Scenes/MainMenu.unity";
         private const string ValidationScenePath = "Assets/WhatLightRemains/Generated/Scenes/Validation.unity";
         private const string BuilderHint =
             "Run the What Light Remains foundation builder to generate the required assets, then rerun the tests.";
@@ -149,6 +153,7 @@ namespace WhatLightRemains.Tests
             Assert.That(creationPrompt.RotationLabel, Is.Not.Null);
             Assert.That(creationPrompt.RotationLabel.gameObject.activeSelf, Is.False);
             Assert.That(creationPrompt.CurrentRotationText, Is.EqualTo(RoomCreationPromptView.RotationIdleText));
+            Assert.That(creationPrompt.RotationLabel.supportRichText, Is.True);
             Assert.That(creationPrompt.TraversalLabel, Is.Not.Null);
             Assert.That(creationPrompt.TraversalLabel.text, Is.EqualTo(RoomCreationPromptView.TraverseText));
             Assert.That(creationPrompt.TraversalLabel.gameObject.activeSelf, Is.False);
@@ -156,6 +161,49 @@ namespace WhatLightRemains.Tests
             Assert.That(hotbar.transform.localScale, Is.EqualTo(Vector3.one));
             Assert.That(hotbar.GetComponentInChildren<Canvas>(true).renderMode, Is.EqualTo(RenderMode.ScreenSpaceOverlay));
             Assert.That(hotbar.GetComponentInChildren<CubeRoom>(true), Is.Null);
+        }
+
+        [Test]
+        public void MainMenuScene_UsesSuppliedArtworkAndLoadsFoundationAfterFade()
+        {
+            Texture2D artworkAsset = LoadRequiredAsset<Texture2D>(MenuArtworkPath);
+            Assert.That(System.IO.File.Exists(MainMenuScenePath), Is.True, MissingAssetMessage(MainMenuScenePath));
+            Scene scene = EditorSceneManager.OpenScene(MainMenuScenePath, OpenSceneMode.Additive);
+            try
+            {
+                List<MainMenuController> controllers = FindInScene<MainMenuController>(scene);
+                Assert.That(controllers, Has.Count.EqualTo(1));
+                MainMenuController controller = controllers[0];
+                Assert.That(controller.MenuGroup, Is.Not.Null);
+                Assert.That(controller.NewGameButton, Is.Not.Null);
+                Assert.That(controller.NewGameButton.interactable, Is.True);
+                Assert.That(controller.GameplaySceneName, Is.EqualTo("Foundation"));
+                Assert.That(controller.FadeDuration, Is.EqualTo(0.8f).Within(0.001f));
+                Assert.That(controller.NewGameButton.GetComponentInChildren<Text>(true).text, Is.EqualTo("New Game"));
+
+                RawImage menuImage = FindInScene<RawImage>(scene).Single();
+                Assert.That(menuImage.texture, Is.SameAs(artworkAsset));
+                Assert.That(menuImage.raycastTarget, Is.False);
+                Assert.That(menuImage.GetComponent<AspectRatioFitter>().aspectMode,
+                    Is.EqualTo(AspectRatioFitter.AspectMode.FitInParent));
+                Assert.That(FindInScene<EventSystem>(scene), Has.Count.EqualTo(1));
+                Assert.That(FindInScene<InputSystemUIInputModule>(scene), Has.Count.EqualTo(1));
+
+                Camera menuCamera = FindInScene<Camera>(scene).Single();
+                Assert.That(menuCamera.clearFlags, Is.EqualTo(CameraClearFlags.SolidColor));
+                Assert.That(menuCamera.backgroundColor.maxColorComponent, Is.LessThanOrEqualTo(0.001f));
+                Assert.That(menuCamera.cullingMask, Is.Zero);
+            }
+            finally
+            {
+                EditorSceneManager.CloseScene(scene, true);
+            }
+
+            EditorBuildSettingsScene[] buildScenes = EditorBuildSettings.scenes;
+            Assert.That(buildScenes[0].path, Is.EqualTo(MainMenuScenePath));
+            Assert.That(buildScenes[0].enabled, Is.True);
+            Assert.That(buildScenes[1].path, Is.EqualTo(FoundationScenePath));
+            Assert.That(buildScenes[1].enabled, Is.True);
         }
 
         [Test]

@@ -39,9 +39,10 @@ namespace WhatLightRemains.Tests
                 prompt.SetRotationState(true, false, false);
                 Assert.That(rotation.text, Is.EqualTo("Hold Ctrl to Rotate"));
                 prompt.SetRotationState(true, true, false);
-                Assert.That(rotation.text, Is.EqualTo("Mouse Wheel: Rotate Y 90°"));
+                Assert.That(rotation.text, Is.EqualTo("<b>Ctrl: Rotate around y-axis</b>\nCtrl+Alt: Rotate around z-axis"));
                 prompt.SetRotationState(true, true, true);
-                Assert.That(rotation.text, Is.EqualTo("Mouse Wheel: Rotate Z 90°"));
+                Assert.That(rotation.text, Is.EqualTo("Ctrl: Rotate around y-axis\n<b>Ctrl+Alt: Rotate around z-axis</b>"));
+                Assert.That(rotation.supportRichText, Is.True);
             }
             finally
             {

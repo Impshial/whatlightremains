@@ -9,8 +9,8 @@ namespace WhatLightRemains.Runtime
         public const string NormalText = "Press C to create a room";
         public const string CreateText = "Left-Click to finalize placement";
         public const string RotationIdleText = "Hold Ctrl to Rotate";
-        public const string RotateYText = "Mouse Wheel: Rotate Y 90°";
-        public const string RotateZText = "Mouse Wheel: Rotate Z 90°";
+        public const string RotateYText = "<b>Ctrl: Rotate around y-axis</b>\nCtrl+Alt: Rotate around z-axis";
+        public const string RotateZText = "Ctrl: Rotate around y-axis\n<b>Ctrl+Alt: Rotate around z-axis</b>";
         public const string TraverseText = "Hold E to Traverse";
 
         [SerializeField] private Text instructionLabel;
@@ -66,6 +66,7 @@ namespace WhatLightRemains.Runtime
 
             if (rotationLabel != null)
             {
+                rotationLabel.supportRichText = true;
                 rotationLabel.gameObject.SetActive(createMode);
                 rotationLabel.text = RotationIdleText;
             }

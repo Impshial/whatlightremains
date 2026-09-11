@@ -7,7 +7,9 @@ using UnityEditor;
 using UnityEditor.Build.Reporting;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.UI;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.SceneManagement;
@@ -44,6 +46,7 @@ namespace WhatLightRemains.Editor
         private const string CubePrefabPath = PrefabsFolder + "/CubeRoom.prefab";
         private const string PlayerPrefabPath = PrefabsFolder + "/Player.prefab";
         private const string HotbarPrefabPath = PrefabsFolder + "/Hotbar.prefab";
+        public const string MainMenuScenePath = ScenesFolder + "/MainMenu.unity";
         public const string FoundationScenePath = ScenesFolder + "/Foundation.unity";
         public const string ValidationScenePath = ScenesFolder + "/Validation.unity";
 
@@ -51,6 +54,7 @@ namespace WhatLightRemains.Editor
         private const string FloorNormalTexturePath = "Assets/WhatLightRemains/Art/Textures/Floor/Floor_Normal.png";
         private const string GlassDetailTexturePath = "Assets/WhatLightRemains/Art/Textures/Glass/Glass_Detail.png";
         private const string GlassNormalTexturePath = "Assets/WhatLightRemains/Art/Textures/Glass/Glass_Normal.png";
+        private const string MenuArtworkTexturePath = "Assets/WhatLightRemains/Art/Menu/WhatLightRemainsTitle.png";
 
         private const string PcRendererPath = "Assets/Settings/PC_Renderer.asset";
         private const string PcPipelinePath = "Assets/Settings/PC_RPAsset.asset";
@@ -99,6 +103,7 @@ namespace WhatLightRemains.Editor
                 Texture2D floorNormal = ConfigureSurfaceTexture(FloorNormalTexturePath, true);
                 Texture2D glassDetail = ConfigureSurfaceTexture(GlassDetailTexturePath, false);
                 Texture2D glassNormal = ConfigureSurfaceTexture(GlassNormalTexturePath, true);
+                Texture2D menuArtwork = ConfigureMenuArtwork(MenuArtworkTexturePath);
 
                 Material glass = CreateGlassMaterial(glassDetail, glassNormal);
                 Material floor = CreateFloorMaterial(floorBaseColor, floorNormal);
@@ -116,13 +121,14 @@ namespace WhatLightRemains.Editor
                 GameObject playerPrefab = CreatePlayerPrefab(inputActions, hand, tool, roomPreview, layers);
                 GameObject hotbarPrefab = CreateHotbarPrefab(toolIcon);
 
+                CreateMainMenuScene(menuArtwork);
                 CreateFoundationScene(cubePrefab, playerPrefab, hotbarPrefab);
                 CreateValidationScene(cubePrefab, playerPrefab, hotbarPrefab, validation);
                 ConfigureBuildScenes();
 
                 AssetDatabase.SaveAssets();
                 AssetDatabase.Refresh();
-                Debug.Log("What Light Remains foundation generated successfully. Open " + FoundationScenePath + ".");
+                Debug.Log("What Light Remains foundation generated successfully. Open " + MainMenuScenePath + " to test the startup flow.");
                 return true;
             }
             finally
@@ -144,7 +150,7 @@ namespace WhatLightRemains.Editor
 
             string outputDirectory = Path.GetFullPath(Path.Combine(Application.dataPath, "../Build/Windows"));
             BuildWindowsPlayer(
-                new[] { FoundationScenePath },
+                new[] { MainMenuScenePath, FoundationScenePath },
                 Path.Combine(outputDirectory, "WhatLightRemains.exe"),
                 "Windows build");
         }
@@ -415,6 +421,51 @@ namespace WhatLightRemains.Editor
             if (texture == null)
             {
                 throw new InvalidOperationException("Failed to import required surface texture: " + path);
+            }
+
+            return texture;
+        }
+
+        private static Texture2D ConfigureMenuArtwork(string path)
+        {
+            string absolutePath = Path.GetFullPath(Path.Combine(Application.dataPath, "..", path));
+            if (!File.Exists(absolutePath))
+            {
+                throw new FileNotFoundException("The checked-in main-menu artwork is missing.", absolutePath);
+            }
+
+            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
+            TextureImporter importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer == null)
+            {
+                throw new InvalidOperationException("Could not configure main-menu artwork at " + path + ".");
+            }
+
+            bool requiresImport = importer.textureType != TextureImporterType.Default
+                || !importer.sRGBTexture
+                || importer.wrapMode != TextureWrapMode.Clamp
+                || importer.filterMode != FilterMode.Bilinear
+                || importer.mipmapEnabled
+                || importer.isReadable
+                || importer.maxTextureSize != 4096
+                || importer.textureCompression != TextureImporterCompression.Uncompressed;
+            if (requiresImport)
+            {
+                importer.textureType = TextureImporterType.Default;
+                importer.sRGBTexture = true;
+                importer.wrapMode = TextureWrapMode.Clamp;
+                importer.filterMode = FilterMode.Bilinear;
+                importer.mipmapEnabled = false;
+                importer.isReadable = false;
+                importer.maxTextureSize = 4096;
+                importer.textureCompression = TextureImporterCompression.Uncompressed;
+                importer.SaveAndReimport();
+            }
+
+            Texture2D texture = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+            if (texture == null)
+            {
+                throw new InvalidOperationException("Failed to import main-menu artwork: " + path);
             }
 
             return texture;
@@ -1030,7 +1081,9 @@ namespace WhatLightRemains.Editor
                 rotationRect.anchorMax = new Vector2(0.5f, 0f);
                 rotationRect.pivot = new Vector2(0.5f, 0f);
                 rotationRect.anchoredPosition = new Vector2(0f, 98f);
-                rotationRect.sizeDelta = new Vector2(680f, 38f);
+                rotationRect.sizeDelta = new Vector2(680f, 62f);
+                rotationInstruction.supportRichText = true;
+                rotationInstruction.lineSpacing = 0.9f;
                 Outline rotationOutline = rotationInstruction.gameObject.AddComponent<Outline>();
                 rotationOutline.effectColor = new Color(0f, 0f, 0f, 0.94f);
                 rotationOutline.effectDistance = new Vector2(2f, -2f);
@@ -1144,6 +1197,111 @@ namespace WhatLightRemains.Editor
             }
         }
 
+        private static void CreateMainMenuScene(Texture2D menuArtwork)
+        {
+            Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            ConfigureBlackEnvironment();
+
+            GameObject cameraObject = new GameObject("Main Menu Camera", typeof(Camera));
+            cameraObject.tag = "MainCamera";
+            Camera camera = cameraObject.GetComponent<Camera>();
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = Color.black;
+            camera.cullingMask = 0;
+            camera.allowHDR = false;
+            camera.allowMSAA = false;
+
+            GameObject menuRoot = new GameObject("Main Menu", typeof(MainMenuController));
+            GameObject canvasObject = new GameObject(
+                "Canvas",
+                typeof(RectTransform),
+                typeof(Canvas),
+                typeof(CanvasScaler),
+                typeof(GraphicRaycaster),
+                typeof(CanvasGroup));
+            canvasObject.transform.SetParent(menuRoot.transform, false);
+            Canvas canvas = canvasObject.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.matchWidthOrHeight = 0.5f;
+            CanvasGroup menuGroup = canvasObject.GetComponent<CanvasGroup>();
+
+            GameObject backdrop = CreateUiImage("Black Backdrop", canvasObject.transform, Color.black);
+            StretchToParent(backdrop.GetComponent<RectTransform>(), 0f);
+
+            GameObject artworkObject = new GameObject(
+                "What Light Remains Artwork",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(RawImage),
+                typeof(AspectRatioFitter));
+            artworkObject.transform.SetParent(canvasObject.transform, false);
+            RectTransform artworkRect = artworkObject.GetComponent<RectTransform>();
+            StretchToParent(artworkRect, 0f);
+            RawImage artwork = artworkObject.GetComponent<RawImage>();
+            artwork.texture = menuArtwork;
+            artwork.color = Color.white;
+            artwork.raycastTarget = false;
+            AspectRatioFitter fitter = artworkObject.GetComponent<AspectRatioFitter>();
+            fitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+            fitter.aspectRatio = menuArtwork.width / (float)menuArtwork.height;
+
+            GameObject buttonObject = new GameObject(
+                "New Game Button",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image),
+                typeof(Button),
+                typeof(Outline));
+            buttonObject.transform.SetParent(canvasObject.transform, false);
+            RectTransform buttonRect = buttonObject.GetComponent<RectTransform>();
+            buttonRect.anchorMin = new Vector2(0.5f, 0f);
+            buttonRect.anchorMax = new Vector2(0.5f, 0f);
+            buttonRect.pivot = new Vector2(0.5f, 0f);
+            buttonRect.anchoredPosition = new Vector2(0f, 34f);
+            buttonRect.sizeDelta = new Vector2(280f, 64f);
+            Image buttonImage = buttonObject.GetComponent<Image>();
+            buttonImage.color = new Color(0.015f, 0.017f, 0.02f, 0.92f);
+            buttonImage.raycastTarget = true;
+            Outline buttonOutline = buttonObject.GetComponent<Outline>();
+            buttonOutline.effectColor = new Color(0.94f, 0.91f, 0.82f, 0.9f);
+            buttonOutline.effectDistance = new Vector2(1f, -1f);
+            Button newGameButton = buttonObject.GetComponent<Button>();
+            ColorBlock colors = newGameButton.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(1f, 0.96f, 0.86f, 1f);
+            colors.pressedColor = new Color(0.72f, 0.76f, 0.82f, 1f);
+            colors.selectedColor = colors.highlightedColor;
+            colors.disabledColor = new Color(0.45f, 0.45f, 0.45f, 0.7f);
+            colors.colorMultiplier = 1f;
+            colors.fadeDuration = 0.12f;
+            newGameButton.colors = colors;
+
+            Text buttonLabel = CreateUiText(
+                "Label",
+                buttonObject.transform,
+                "New Game",
+                27,
+                TextAnchor.MiddleCenter);
+            StretchToParent(buttonLabel.rectTransform, 4f);
+            buttonLabel.color = new Color(0.98f, 0.96f, 0.90f, 1f);
+
+            GameObject eventSystemObject = new GameObject(
+                "EventSystem",
+                typeof(EventSystem),
+                typeof(InputSystemUIInputModule));
+            eventSystemObject.transform.SetParent(menuRoot.transform, false);
+
+            menuRoot.GetComponent<MainMenuController>().Configure(
+                menuGroup,
+                newGameButton,
+                Path.GetFileNameWithoutExtension(FoundationScenePath),
+                0.8f);
+            EditorSceneManager.SaveScene(scene, MainMenuScenePath);
+        }
+
         private static void CreateFoundationScene(GameObject cubePrefab, GameObject playerPrefab, GameObject hotbarPrefab)
         {
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -1227,10 +1385,13 @@ namespace WhatLightRemains.Editor
         private static void ConfigureBuildScenes()
         {
             List<EditorBuildSettingsScene> scenes = EditorBuildSettings.scenes
-                .Where(scene => scene.path != FoundationScenePath && scene.path != ValidationScenePath)
+                .Where(scene => scene.path != MainMenuScenePath
+                    && scene.path != FoundationScenePath
+                    && scene.path != ValidationScenePath)
                 .ToList();
             scenes.Insert(0, new EditorBuildSettingsScene(ValidationScenePath, false));
             scenes.Insert(0, new EditorBuildSettingsScene(FoundationScenePath, true));
+            scenes.Insert(0, new EditorBuildSettingsScene(MainMenuScenePath, true));
             EditorBuildSettings.scenes = scenes.ToArray();
         }
 
