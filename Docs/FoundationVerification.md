@@ -8,9 +8,9 @@ This report describes the acceptance matrix for the authoritative-aperture, trav
 | --- | ---: | --- |
 | Foundation asset regeneration | Passed | `FoundationBuilder.BuildAll` completed with no compile or generator errors |
 | Runtime and test assembly compilation | Passed | Unity imported all four project assemblies with no C# errors |
-| EditMode suite | Passed — 51/51 | Fresh in-editor run on 2026-09-11 |
+| EditMode suite | Passed — 53/53 | Fresh in-editor run on 2026-09-11, including exact 32 ft/s² conversion and grapple-curve math |
 | PlayMode suite | Passed — 13/13 | Fresh in-editor run on 2026-09-11, including rotated-doorway clearance and asymmetric prompt regression |
-| Windows x64 development build | Passed | `Build/Windows/WhatLightRemains.exe` (201,761,098 total build bytes) |
+| Windows x64 development build | Passed | `Build/Windows/WhatLightRemains.exe` (201,763,134 total build bytes) |
 | 1920×1080 visual pass | Manual | Baseline presentation was previously captured; the new rotated traversal/seam/power behavior needs hands-on confirmation |
 | 1280×720 visual pass | Manual | Current-revision UI scaling and contextual traversal prompt need hands-on confirmation |
 | Built-player startup/cursor smoke | Manual | The current Windows player built successfully but was not interactively launched by this verification run |
@@ -21,14 +21,14 @@ This report describes the acceptance matrix for the authoritative-aperture, trav
 
 The EditMode suite verifies:
 
-- exact 8 m interior dimensions, external boundary thickness, rotated room gravity, and independent per-instance settings;
+- exact 8 m interior dimensions, external boundary thickness, standard gravity of exactly 32 ft/s² (`9.7536 m/s²`), rotated room gravity, and independent per-instance settings;
 - all 24 right-handed cardinal `RoomOrientation` bases and exact local-Y/local-Z quarter turns;
 - three-dimensional `Vector3Int` occupancy, volume-center/root conversion, exact anchors, stale-candidate rejection, and no accumulated drift;
 - all four Z-axis orientations for side placement, existing-room aperture authority, side-to-side and side-to-ceiling projection, ceiling-to-side projection, centered ceiling-to-ceiling openings, and the absolute floor-contact veto;
 - reciprocal shared-face connection data and loop-closing side connections;
 - one shared segmented boundary around each exact aperture, immediate split base rails, reciprocal external-geometry ownership, and no full-face collider across an opening;
 - the generated room's closed ceiling plus four legacy edge variants, exact 2 m × 2.4 m doorway and 2.4 m square ceiling apertures, and complete absence of ladder components or geometry;
-- the custom local-Y capsule, kinematic Rigidbody, independent yaw/pitch pivots, 3 m/s walk, 6 m/s sprint, traversal motion ownership, and 0.35-second gravity alignment;
+- the custom local-Y capsule, kinematic Rigidbody, independent yaw/pitch pivots, 3 m/s walk, 6 m/s sprint, traversal motion ownership, 0.35-second gravity alignment, and accelerating quadratic grapple curve with an exact aperture-center endpoint;
 - normalized arbitrary-gravity movement and jump math;
 - full renderer-only ghost construction, separate 2% glass/10% structure/16% floor opacity bands, alpha blending, outline, gravity arrow, and absence of colliders, lights, or room scripts;
 - normalized (`±1`) and legacy Windows (`±120`) mouse-wheel ticks producing one signed quarter-turn, plus `Ctrl`/`Ctrl+Alt` rotation prompt text and generated keyboard/mouse bindings;
@@ -62,7 +62,7 @@ The PlayMode suite verifies:
 8. Aim at the ceiling with the preview upright. Place the room and confirm the Floor contact stays sealed. In another available ceiling cell, rotate the candidate until a side faces the source ceiling; confirm the new side doorway is projected into that ceiling.
 9. Create an inverted room so two Ceilings meet. Confirm one centered 2.4 m square opening, solid surrounding collision, and no ladder or invisible climb trigger.
 10. Walk through the floor-level side of a rotated doorway without pressing `E`. Confirm the capsule clears the frame before it aligns to destination gravity, lands under control, and can move normally afterward.
-11. Return to the same connection from its elevated side. Confirm the frame highlights and the HUD shows exactly `Hold E to Traverse`; hold `E` to cross. Release before commitment to cancel, then retry and release after commitment to confirm the short transition completes safely. Confirm a floor-level doorway never shows the prompt or accepts `E`.
+11. Return to the same connection from its elevated side. Confirm the frame highlights and the HUD shows exactly `Hold E to Traverse`; hold `E` and confirm the player accelerates along a visible curve, arrives dead center in the opening, and crosses quickly. Release before commitment to cancel, then retry and release after commitment to confirm the short transition completes safely. Confirm a floor-level doorway never shows the prompt or accepts `E`.
 12. Inspect an open side and ceiling doorway. Frame geometry should glow and cast visibly softer light than the main strips—exactly half power—with no center-room point-light reflection.
 13. In Play Mode, toggle `Power On` on one room in the Inspector. Confirm its strips, real-time lights, and its facing half of every shared frame turn off immediately while adjacent room lighting remains on; restore it and confirm the prior tuning returns.
 14. Press `Escape` during Create mode. Confirm the ghost and rotation hint disappear and the cursor is available for the opacity slider. Drag from 0% to 100%, then left-click away from the control to recapture the cursor.
@@ -90,3 +90,5 @@ The delayed floor separator came from destroying and rebuilding passage geometry
 Every traversable connection now stores one authoritative `RoomAperture`. The existing room supplies a side-wall doorway; an existing ceiling/new side uses the new side doorway; two ceilings use a centered square opening; and any Floor contact is sealed. The preview and committed segmented geometry use the same resolver. There are no ladder systems. Floor-level sides use ordinary walking and automatic post-clearance gravity transition, while only an elevated side can show `Hold E to Traverse` and accept assisted movement.
 
 `CubeRoom.PowerOn`, `SetPower(bool)`, and `TogglePower()` independently control each room's strip emission/lights and its facing portion of shared doorway lighting. The serialized Inspector state defaults ON, responds during Play Mode, and remains subordinate to the existing debug lighting override without mutating shared materials.
+
+Standard room gravity now uses the exact 32 ft/s² conversion (`9.7536 m/s²`) rather than the rounded conventional `9.81 m/s²`. Assisted traversal captures its start and computes a bowed quadratic Bézier to the authoritative aperture center. Squared normalized time gives the pull an accelerating grapple feel; it reaches the opening in 0.65 seconds, continues through at 12 m/s, and uses a 6 m/s controlled landing while every displacement still passes through the swept capsule mover.

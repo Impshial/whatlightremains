@@ -811,8 +811,11 @@ MonoBehaviour:
   gameplayCamera: {fileID: 3264905031190513779}
   creationController: {fileID: 512684838424836928}
   promptView: {fileID: 0}
-  travelSpeed: 4
-  acceleration: 10
+  grappleDuration: 0.65
+  grappleArcHeight: 1.15
+  travelSpeed: 12
+  landingSpeed: 6
+  acceleration: 30
   targetingMargin: 0.28
   waypointTolerance: 0.06
 --- !u!114 &8757354384928270682

@@ -119,18 +119,62 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1001 &234030811
+--- !u!1 &390955889
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 390955891}
+  - component: {fileID: 390955890}
+  m_Layer: 0
+  m_Name: Room Cluster
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &390955890
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 390955889}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c5bde35ce9b50e64f95c4a0f14bbc479, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: WhatLightRemains.Runtime::WhatLightRemains.Runtime.CubeRoomClusterGenerator
+  primaryRoom: {fileID: 752247079}
+  roomPrefab: {fileID: 6347452007951754033, guid: 263e66823dfcb5e42bd76e3dbc63fc85, type: 3}
+  additionalRoomCount: 0
+--- !u!4 &390955891
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 390955889}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 752247080}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1001 &752247078
 PrefabInstance:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Modification:
     serializedVersion: 3
-    m_TransformParent: {fileID: 1129375643}
+    m_TransformParent: {fileID: 390955891}
     m_Modifications:
-    - target: {fileID: 33164946585525334, guid: 263e66823dfcb5e42bd76e3dbc63fc85, type: 3}
-      propertyPath: m_Enabled
-      value: 1
-      objectReference: {fileID: 0}
     - target: {fileID: 38203805017061722, guid: 263e66823dfcb5e42bd76e3dbc63fc85, type: 3}
       propertyPath: m_Enabled
       value: 1
@@ -139,7 +183,11 @@ PrefabInstance:
       propertyPath: m_Enabled
       value: 1
       objectReference: {fileID: 0}
-    - target: {fileID: 2332855176866458350, guid: 263e66823dfcb5e42bd76e3dbc63fc85, type: 3}
+    - target: {fileID: 1406164281828112516, guid: 263e66823dfcb5e42bd76e3dbc63fc85, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3588639171207799937, guid: 263e66823dfcb5e42bd76e3dbc63fc85, type: 3}
       propertyPath: m_Enabled
       value: 1
       objectReference: {fileID: 0}
@@ -183,7 +231,11 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 4579680287137944806, guid: 263e66823dfcb5e42bd76e3dbc63fc85, type: 3}
+    - target: {fileID: 4611999640621786347, guid: 263e66823dfcb5e42bd76e3dbc63fc85, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5212785912651504502, guid: 263e66823dfcb5e42bd76e3dbc63fc85, type: 3}
       propertyPath: m_Enabled
       value: 1
       objectReference: {fileID: 0}
@@ -191,15 +243,11 @@ PrefabInstance:
       propertyPath: m_Name
       value: Primary Cube Room
       objectReference: {fileID: 0}
-    - target: {fileID: 7166104692977236452, guid: 263e66823dfcb5e42bd76e3dbc63fc85, type: 3}
+    - target: {fileID: 8824114075621238442, guid: 263e66823dfcb5e42bd76e3dbc63fc85, type: 3}
       propertyPath: m_Enabled
       value: 1
       objectReference: {fileID: 0}
-    - target: {fileID: 7424392791190040585, guid: 263e66823dfcb5e42bd76e3dbc63fc85, type: 3}
-      propertyPath: m_Enabled
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 7995691181197982507, guid: 263e66823dfcb5e42bd76e3dbc63fc85, type: 3}
+    - target: {fileID: 8947822861353176952, guid: 263e66823dfcb5e42bd76e3dbc63fc85, type: 3}
       propertyPath: m_Enabled
       value: 1
       objectReference: {fileID: 0}
@@ -208,10 +256,10 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 263e66823dfcb5e42bd76e3dbc63fc85, type: 3}
---- !u!114 &234030812 stripped
+--- !u!114 &752247079 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 6347452007951754033, guid: 263e66823dfcb5e42bd76e3dbc63fc85, type: 3}
-  m_PrefabInstance: {fileID: 234030811}
+  m_PrefabInstance: {fileID: 752247078}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 0}
   m_Enabled: 1
@@ -219,60 +267,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 59a3f47607e7dc54c8a914611d1d3d8e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: WhatLightRemains.Runtime::WhatLightRemains.Runtime.CubeRoom
---- !u!4 &234030813 stripped
+--- !u!4 &752247080 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 4478540608599911373, guid: 263e66823dfcb5e42bd76e3dbc63fc85, type: 3}
-  m_PrefabInstance: {fileID: 234030811}
+  m_PrefabInstance: {fileID: 752247078}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &1129375641
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1129375643}
-  - component: {fileID: 1129375642}
-  m_Layer: 0
-  m_Name: Room Cluster
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1129375642
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1129375641}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c5bde35ce9b50e64f95c4a0f14bbc479, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: WhatLightRemains.Runtime::WhatLightRemains.Runtime.CubeRoomClusterGenerator
-  primaryRoom: {fileID: 234030812}
-  roomPrefab: {fileID: 6347452007951754033, guid: 263e66823dfcb5e42bd76e3dbc63fc85, type: 3}
-  additionalRoomCount: 0
---- !u!4 &1129375643
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1129375641}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 234030813}
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1001 &1391448050
+--- !u!1001 &1328586305
 PrefabInstance:
   m_ObjectHideFlags: 0
   serializedVersion: 2
@@ -329,10 +329,10 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 2c1779095282f774e9f5af7581b849c7, type: 3}
---- !u!114 &1391448051 stripped
+--- !u!114 &1328586306 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 8603303259044992342, guid: 2c1779095282f774e9f5af7581b849c7, type: 3}
-  m_PrefabInstance: {fileID: 1391448050}
+  m_PrefabInstance: {fileID: 1328586305}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 0}
   m_Enabled: 1
@@ -340,7 +340,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5dc3c05a1f93b7843898d7c295eb463a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: WhatLightRemains.Runtime::WhatLightRemains.Runtime.RoomCreationPromptView
---- !u!1001 &1813984924
+--- !u!1001 &1730738543
 PrefabInstance:
   m_ObjectHideFlags: 0
   serializedVersion: 2
@@ -351,19 +351,19 @@ PrefabInstance:
     - target: {fileID: 512684838424836928, guid: 4b3dd575d8c519a4b89784b661259aaa, type: 3}
       propertyPath: promptView
       value: 
-      objectReference: {fileID: 1391448051}
+      objectReference: {fileID: 1328586306}
     - target: {fileID: 512684838424836928, guid: 4b3dd575d8c519a4b89784b661259aaa, type: 3}
       propertyPath: roomLayout
       value: 
-      objectReference: {fileID: 1129375642}
+      objectReference: {fileID: 390955890}
     - target: {fileID: 4093413171902578324, guid: 4b3dd575d8c519a4b89784b661259aaa, type: 3}
       propertyPath: startingRoom
       value: 
-      objectReference: {fileID: 234030812}
+      objectReference: {fileID: 752247079}
     - target: {fileID: 4887788067124057916, guid: 4b3dd575d8c519a4b89784b661259aaa, type: 3}
       propertyPath: promptView
       value: 
-      objectReference: {fileID: 1391448051}
+      objectReference: {fileID: 1328586306}
     - target: {fileID: 5698927531442966569, guid: 4b3dd575d8c519a4b89784b661259aaa, type: 3}
       propertyPath: m_LocalRotation.w
       value: 0.9238795
@@ -425,6 +425,6 @@ PrefabInstance:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
-  - {fileID: 1129375643}
-  - {fileID: 1813984924}
-  - {fileID: 1391448050}
+  - {fileID: 390955891}
+  - {fileID: 1730738543}
+  - {fileID: 1328586305}

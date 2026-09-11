@@ -28,8 +28,9 @@ namespace WhatLightRemains.Runtime
         public const float DoorwayWidth = 2f;
         public const float DoorwayHeight = 2.4f;
         public const float AnchorAlignmentTolerance = 0.001f;
+        public const float StandardGravityStrength = 9.7536f; // Exactly 32 ft/s² in metres.
 
-        [SerializeField, Min(0f)] private float gravityStrength = 9.81f;
+        [SerializeField, Min(0f)] private float gravityStrength = StandardGravityStrength;
         [SerializeField] private bool powerOn = true;
         [SerializeField] private CubeRoomLighting lighting;
         [SerializeField] private RoomOccupancyVolume occupancyVolume;

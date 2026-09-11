@@ -92,7 +92,11 @@ namespace WhatLightRemains.Tests
             Assert.That(player.GetComponentInChildren<RoomCreationController>(true), Is.Not.Null);
             Assert.That(player.GetComponent<KinematicCapsuleMover>(), Is.Not.Null);
             Assert.That(player.GetComponent<PlayerGravityAlignment>(), Is.Not.Null);
-            Assert.That(player.GetComponent<PlayerRoomTraversal>(), Is.Not.Null);
+            PlayerRoomTraversal traversal = player.GetComponent<PlayerRoomTraversal>();
+            Assert.That(traversal, Is.Not.Null);
+            Assert.That(traversal.GrappleDuration, Is.EqualTo(0.65f).Within(0.001f));
+            Assert.That(traversal.GrappleArcHeight, Is.EqualTo(1.15f).Within(0.001f));
+            Assert.That(traversal.TravelSpeed, Is.EqualTo(12f).Within(0.001f));
             Assert.That(player.GetComponentInChildren<Camera>(true), Is.Not.Null);
             Assert.That(player.GetComponentInChildren<CubeRoom>(true), Is.Null);
             Assert.That(
@@ -452,7 +456,8 @@ namespace WhatLightRemains.Tests
 
                 Assert.That(source.Lighting.IsLightingEnabled, Is.True);
                 Assert.That(independent.Lighting.IsLightingEnabled, Is.False);
-                Assert.That(independent.GravityStrength, Is.EqualTo(4.905f).Within(0.0001f));
+                Assert.That(independent.GravityStrength,
+                    Is.EqualTo(CubeRoom.StandardGravityStrength * 0.5f).Within(0.0001f));
                 Assert.That(Vector3.Distance(source.transform.position, independent.transform.position), Is.EqualTo(16f).Within(0.001f));
                 Assert.That(Quaternion.Angle(independent.transform.rotation, Quaternion.Euler(0f, 0f, 90f)), Is.LessThan(0.01f));
                 Assert.That(Vector3.Dot(independent.GravityAcceleration.normalized, Vector3.right), Is.GreaterThan(0.999f));

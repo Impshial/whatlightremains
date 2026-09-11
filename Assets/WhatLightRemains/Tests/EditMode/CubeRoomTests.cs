@@ -17,12 +17,12 @@ namespace WhatLightRemains.Tests
             {
                 CubeRoom room = roomObject.AddComponent<CubeRoom>();
 
-                Assert.That(room.GravityStrength, Is.EqualTo(9.81f).Within(FloatTolerance));
+                Assert.That(room.GravityStrength, Is.EqualTo(9.7536f).Within(FloatTolerance));
                 AssertVector(room.InteriorSize, new Vector3(8f, 8f, 8f));
                 Assert.That(CubeRoom.DoorwayWidth, Is.EqualTo(2f).Within(FloatTolerance));
                 Assert.That(CubeRoom.DoorwayHeight, Is.EqualTo(2.4f).Within(FloatTolerance));
                 AssertVector(room.RoomUp, Vector3.up);
-                AssertVector(room.GravityAcceleration, Vector3.down * 9.81f);
+                AssertVector(room.GravityAcceleration, Vector3.down * 9.7536f);
             }
             finally
             {
@@ -80,7 +80,7 @@ namespace WhatLightRemains.Tests
 
                 firstLighting.Configure(new[] { firstStrip }, new[] { firstLight }, new[] { firstDoorwayFrame });
                 secondLighting.Configure(new[] { secondStrip }, new[] { secondLight }, new[] { secondDoorwayFrame });
-                firstRoom.Configure(9.81f, firstLighting, null);
+                firstRoom.Configure(CubeRoom.StandardGravityStrength, firstLighting, null);
                 secondRoom.Configure(2.5f, secondLighting, null);
 
                 firstLighting.SupportingLightIntensity = 12f;
@@ -98,7 +98,7 @@ namespace WhatLightRemains.Tests
                 secondLighting.ApplySettings();
                 secondRoom.SetLightingEnabled(false);
 
-                Assert.That(firstRoom.GravityStrength, Is.EqualTo(9.81f).Within(FloatTolerance));
+                Assert.That(firstRoom.GravityStrength, Is.EqualTo(CubeRoom.StandardGravityStrength).Within(FloatTolerance));
                 Assert.That(secondRoom.GravityStrength, Is.EqualTo(2.5f).Within(FloatTolerance));
                 Assert.That(firstLighting.SupportingLightIntensity, Is.EqualTo(12f).Within(FloatTolerance));
                 Assert.That(secondLighting.SupportingLightIntensity, Is.EqualTo(31f).Within(FloatTolerance));

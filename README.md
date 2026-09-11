@@ -17,7 +17,7 @@ The current Windows development build is written to `Build/Windows/WhatLightRema
 - Hold left `Shift`: sprint at 6 m/s, including while the Create-mode rotation modifiers are held
 - Mouse: look
 - `Space`: jump approximately 1 m
-- Hold `E` while aiming at the highlighted frame of an elevated opening: assisted traversal; release before entering the aperture to cancel
+- Hold `E` while aiming at the highlighted frame of an elevated opening: a fast accelerating grapple arc pulls the player to the exact center of the aperture; release before entering it to cancel
 - `C`: enter or cancel Create mode while the cursor is captured
 - Aim at an available side wall or ceiling in Create mode: preview an exactly snapped room
 - Hold either `Ctrl` and use the mouse wheel: rotate the preview 90° per detent around the source room's local Y axis
@@ -52,9 +52,11 @@ Rotation persists while Create mode remains active in the same source room. It r
 - Exactly eight primary light strips remain on each room: four vertical corner strips and four ceiling-perimeter strips. Their real-time emitters are distributed within the strip geometry rather than at room center.
 - Doorway frames use visible emission and embedded real-time emitters at exactly 50% of the room-strip power. Closed and non-owning boundary variants keep those lights disabled.
 - `Player.prefab` uses a custom kinematic capsule aligned to its local Y axis rather than Unity's world-up `CharacterController`. A separate yaw/pitch hierarchy preserves first-person look while the physical body smoothly aligns to a new room's gravity over 0.35 seconds.
+- Standard room gravity is exactly 32 ft/s² (`9.7536 m/s²`) along each room's local down direction. Jump velocity continues to derive from the active room's gravity strength.
 - During gravity alignment, translation, gravity integration, and jumping pause; mouse look remains active.
 - Floor-level openings remain ordinary walk-through doorways and never show an `E` prompt. When a real crossing enters a room with different gravity, the traversal controller first clears the frame in the source orientation, then aligns and settles the player inside the destination.
 - Openings elevated relative to the current room's local floor can be targeted across the room and show exactly `Hold E to Traverse`. The same shared opening can therefore be walkable from one side and assisted from the other. Ladders and ladder-only triggers/input have been removed.
+- Assisted traversal follows a collision-checked quadratic Bézier built from lerps. The 0.65-second approach accelerates into the opening and finishes with the capsule dead center in the clear aperture; the passage crossing runs at 12 m/s before a controlled 6 m/s landing.
 - Every `CubeRoom` exposes an Inspector-visible `Power On` state plus `SetPower(bool)` and `TogglePower()`. Power is ON by default and independently controls that room's strip lights/emission and its side of shared doorway lighting without affecting gravity, collision, creation, or traversal.
 - `Hotbar.prefab` contains the eight-slot presentation hotbar, Create-mode hints, and glass-opacity control. The UI remains readable independently of room lighting.
 - `Foundation.unity` contains one authored primary room, one player rig, one HUD, and no generated neighbors.

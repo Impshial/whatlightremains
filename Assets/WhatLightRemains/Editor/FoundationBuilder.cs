@@ -831,7 +831,7 @@ namespace WhatLightRemains.Editor
                 RoomOccupancyVolume occupancy = volumeObject.AddComponent<RoomOccupancyVolume>();
                 occupancy.Configure(room);
 
-                room.Configure(9.81f, lighting, occupancy);
+                room.Configure(CubeRoom.StandardGravityStrength, lighting, occupancy);
                 return PrefabUtility.SaveAsPrefabAsset(root, CubePrefabPath);
             }
             finally
@@ -1191,7 +1191,7 @@ namespace WhatLightRemains.Editor
             CubeRoom receivingRoom = InstantiatePrefab<CubeRoom>(cubePrefab);
             receivingRoom.name = "Independent Cube - Lighting Disabled";
             receivingRoom.transform.SetPositionAndRotation(new Vector3(16f, 0f, 0f), Quaternion.Euler(0f, 0f, 90f));
-            receivingRoom.GravityStrength = 4.905f;
+            receivingRoom.GravityStrength = CubeRoom.StandardGravityStrength * 0.5f;
             receivingRoom.SetLightingEnabled(false);
 
             PlayerRoomTracker tracker = InstantiatePrefab<PlayerRoomTracker>(playerPrefab);

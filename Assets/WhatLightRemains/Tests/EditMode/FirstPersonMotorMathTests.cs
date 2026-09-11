@@ -7,6 +7,12 @@ namespace WhatLightRemains.Tests
     public sealed class FirstPersonMotorMathTests
     {
         [Test]
+        public void StandardGravity_IsExactlyThirtyTwoFeetPerSecondSquared()
+        {
+            Assert.That(CubeRoom.StandardGravityStrength / 0.3048f, Is.EqualTo(32f).Within(0.0001f));
+        }
+
+        [Test]
         public void CalculatePlanarMove_ZeroInputProducesZeroVelocity()
         {
             Vector3 result = FirstPersonMotor.CalculatePlanarMove(
@@ -85,7 +91,7 @@ namespace WhatLightRemains.Tests
         public void CalculateJumpSpeed_ProducesRequestedBallisticHeight()
         {
             const float jumpHeight = 1f;
-            const float gravityMagnitude = 9.81f;
+            const float gravityMagnitude = CubeRoom.StandardGravityStrength;
 
             float jumpSpeed = FirstPersonMotor.CalculateJumpSpeed(jumpHeight, gravityMagnitude);
             float resultingHeight = jumpSpeed * jumpSpeed / (2f * gravityMagnitude);
@@ -111,6 +117,25 @@ namespace WhatLightRemains.Tests
             Assert.That(walk.magnitude, Is.EqualTo(3f).Within(0.0001f));
             Assert.That(sprint.magnitude, Is.EqualTo(6f).Within(0.0001f));
             Assert.That(Vector3.Dot(walk.normalized, sprint.normalized), Is.EqualTo(1f).Within(0.0001f));
+        }
+
+        [Test]
+        public void GrappleCurve_ArcsAcceleratesAndFinishesAtOpeningCenter()
+        {
+            Vector3 start = new Vector3(0f, 0.93f, 0f);
+            Vector3 opening = new Vector3(6f, 5f, 0f);
+            Vector3 control = PlayerRoomTraversal.CalculateGrappleControlPoint(
+                start, opening, Vector3.up, Vector3.forward, 1.15f);
+
+            Vector3 straightMidpoint = Vector3.Lerp(start, opening, 0.5f);
+            Assert.That((control - straightMidpoint).magnitude, Is.GreaterThan(1f));
+            Assert.That(PlayerRoomTraversal.EvaluateQuadraticBezier(start, control, opening, 0f), Is.EqualTo(start));
+            Assert.That(PlayerRoomTraversal.EvaluateQuadraticBezier(start, control, opening, 1f), Is.EqualTo(opening));
+
+            Vector3 firstHalf = PlayerRoomTraversal.EvaluateQuadraticBezier(start, control, opening, 0.25f);
+            Vector3 finish = PlayerRoomTraversal.EvaluateQuadraticBezier(start, control, opening, 1f);
+            Assert.That((finish - firstHalf).magnitude, Is.GreaterThan((firstHalf - start).magnitude * 2f),
+                "Squaring elapsed time must make the grapple cover substantially more distance late in the pull.");
         }
 
         [TestCase(1f, 0f, 0f)]
