@@ -14,7 +14,7 @@ Shader "What Light Remains/Light-Transmitting Glass"
         _DistortionPixels("Distortion Pixels", Range(0, 6)) = 2.5
         _DistortionBlend("Distortion Blend", Range(0, 1)) = 0.55
         _DistortionMip("Distortion Mip", Range(0, 8)) = 4
-        _Translucency("Subtle Translucency", Range(0, 1)) = 0.035
+        _Translucency("Subtle Translucency", Range(0, 1)) = 0.05
         [HideInInspector] _WLRDeleteTintColor("Delete Selection Tint", Color) = (1, 0.025, 0.015, 1)
         [HideInInspector] _WLRDeleteTintStrength("Delete Selection Tint Strength", Range(0, 1)) = 0
 
@@ -76,15 +76,9 @@ Shader "What Light Remains/Light-Transmitting Glass"
                 half _DistortionBlend;
                 half _DistortionMip;
                 half _Translucency;
+                half4 _WLRDeleteTintColor;
+                half _WLRDeleteTintStrength;
             CBUFFER_END
-
-            // Runtime HUD tuning values deliberately stay outside UnityPerMaterial so one
-            // slider can adjust every authored and runtime-spawned room without dirtying the
-            // generated ClearGlass material asset.
-            half _WLRGlassOpacityOverride;
-            half _WLRGlassOpacityOverrideEnabled;
-            half4 _WLRDeleteTintColor;
-            half _WLRDeleteTintStrength;
 
             struct Attributes
             {
@@ -144,10 +138,7 @@ Shader "What Light Remains/Light-Transmitting Glass"
                     * highFrequency
                     * _ImperfectionStrength;
                 half distortionBlend = saturate(_DistortionBlend);
-                half translucency = saturate(lerp(
-                    _Translucency,
-                    _WLRGlassOpacityOverride,
-                    saturate(_WLRGlassOpacityOverrideEnabled)));
+                half translucency = saturate(_Translucency);
 
                 // Premultiplied composition preserves most of the framebuffer, replaces a
                 // stronger portion with the offset opaque-scene sample, and adds only a very
@@ -157,7 +148,7 @@ Shader "What Light Remains/Light-Transmitting Glass"
                     + max(_GlassTint.rgb, 0.0h) * translucency
                     + additiveDetail;
                 // Delete selection changes only the pane's transmitted color. Keeping the
-                // replacement weight unchanged preserves the player's current opacity setting.
+                // replacement weight unchanged preserves the authored pane opacity.
                 glassContribution = lerp(
                     glassContribution,
                     max(_WLRDeleteTintColor.rgb, 0.0h) * replacementWeight,

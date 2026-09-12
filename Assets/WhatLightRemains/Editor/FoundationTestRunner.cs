@@ -12,24 +12,60 @@ namespace WhatLightRemains.Editor
     /// </summary>
     public static class FoundationTestRunner
     {
+        private const string PendingAllTestsKey = "WhatLightRemains.FoundationTestRunner.PendingAll";
+        private static bool runAllPending;
+
+        [InitializeOnLoadMethod]
+        private static void RestorePendingRun()
+        {
+            runAllPending = SessionState.GetBool(PendingAllTestsKey, false);
+            if (!runAllPending) return;
+            EditorApplication.update -= TryStartPendingRun;
+            EditorApplication.update += TryStartPendingRun;
+        }
+
         [MenuItem("Tools/What Light Remains/Run EditMode Tests", priority = 30)]
         public static void RunEditModeTests()
         {
-            Run(TestMode.EditMode, "EditMode");
+            Run(TestMode.EditMode, "EditMode", false);
         }
 
         [MenuItem("Tools/What Light Remains/Run PlayMode Tests", priority = 31)]
         public static void RunPlayModeTests()
         {
-            Run(TestMode.PlayMode, "PlayMode");
+            Run(TestMode.PlayMode, "PlayMode", false);
         }
 
-        private static void Run(TestMode mode, string label)
+        [MenuItem("Tools/What Light Remains/Run All Tests", priority = 32)]
+        public static void RunAllTests()
+        {
+            runAllPending = true;
+            SessionState.SetBool(PendingAllTestsKey, true);
+            EditorApplication.update -= TryStartPendingRun;
+            EditorApplication.update += TryStartPendingRun;
+        }
+
+        private static void TryStartPendingRun()
+        {
+            if (!runAllPending)
+            {
+                EditorApplication.update -= TryStartPendingRun;
+                return;
+            }
+            if (EditorApplication.isCompiling || EditorApplication.isUpdating
+                || EditorApplication.isPlayingOrWillChangePlaymode) return;
+            runAllPending = false;
+            SessionState.SetBool(PendingAllTestsKey, false);
+            EditorApplication.update -= TryStartPendingRun;
+            Run(TestMode.EditMode, "EditMode", true);
+        }
+
+        private static void Run(TestMode mode, string label, bool runPlayModeAfter)
         {
             Directory.CreateDirectory(Path.GetFullPath(Path.Combine(Application.dataPath, "../TestResults")));
             FoundationTestCallbacks callbacks = ScriptableObject.CreateInstance<FoundationTestCallbacks>();
             callbacks.hideFlags = HideFlags.HideAndDontSave;
-            callbacks.Initialize(label, $"TestResults/{label}.xml");
+            callbacks.Initialize(label, $"TestResults/{label}.xml", runPlayModeAfter);
             TestRunnerApi api = ScriptableObject.CreateInstance<TestRunnerApi>();
             api.hideFlags = HideFlags.HideAndDontSave;
             api.RegisterCallbacks(callbacks);
@@ -45,11 +81,13 @@ namespace WhatLightRemains.Editor
         {
             private string label;
             private string resultPath;
+            private bool runPlayModeAfter;
 
-            public void Initialize(string runLabel, string xmlPath)
+            public void Initialize(string runLabel, string xmlPath, bool continueWithPlayMode)
             {
                 label = runLabel;
                 resultPath = xmlPath;
+                runPlayModeAfter = continueWithPlayMode;
             }
 
             public void RunStarted(ITestAdaptor testsToRun) { }
@@ -63,7 +101,9 @@ namespace WhatLightRemains.Editor
                 TestRunnerApi.UnregisterTestCallback(this);
                 EditorApplication.delayCall += () =>
                 {
+                    bool continueRun = this != null && runPlayModeAfter;
                     if (this != null) DestroyImmediate(this);
+                    if (continueRun) RunPlayModeTests();
                 };
             }
 

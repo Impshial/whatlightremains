@@ -34,13 +34,16 @@ namespace WhatLightRemains.Tests
             Assert.That(prompt.RotationLabel.gameObject.activeSelf, Is.True);
             Assert.That(creation.HasValidPreview, Is.True);
             Assert.That(creation.Candidate.GridCell, Is.EqualTo(Vector2Int.right));
-            Assert.That(creation.PreviewObject.GetComponentsInChildren<LineRenderer>(true), Has.Length.EqualTo(12));
+            Assert.That(creation.PreviewObject.GetComponentsInChildren<LineRenderer>(true).Length,
+                Is.GreaterThanOrEqualTo(28),
+                "The preview needs the 12 room edges plus 16 pooled Device Wall anchor rings.");
             Assert.That(creation.PreviewObject.GetComponentsInChildren<Collider>(true), Is.Empty);
             Assert.That(creation.PreviewObject.GetComponentsInChildren<Light>(true), Is.Empty);
             Assert.That(creation.PreviewObject.GetComponentsInChildren<CubeRoom>(true), Is.Empty);
-            Assert.That(creation.PreviewObject.GetComponentsInChildren<MeshRenderer>(true).Length,
-                Is.EqualTo(layout.RoomPrefab.GetComponentsInChildren<MeshRenderer>(true).Length + 2),
-                "The ghost must include every prefab mesh plus its shaft-and-head gravity arrow.");
+            Assert.That(creation.PreviewObject.GetComponentsInChildren<Transform>(true)
+                .Count(child => child.name.StartsWith("Anchor Marker")), Is.EqualTo(16));
+            Assert.That(creation.PreviewObject.GetComponentsInChildren<Transform>(true)
+                .Count(child => child.name.StartsWith("Ghost Rail")), Is.EqualTo(4));
             Assert.That(creation.PreviewObject.GetComponentsInChildren<Transform>(true)
                 .Any(child => child.name == "Floor"), Is.True,
                 "The preview must include the filled floor rather than only a wire outline.");
@@ -58,6 +61,9 @@ namespace WhatLightRemains.Tests
             Assert.That(prompt.RotationLabel.gameObject.activeSelf, Is.False);
 
             CubeRoom created = layout.Rooms[1];
+            Assert.That(created.DeviceWall, Is.Not.Null);
+            Assert.That(created.DeviceWall.Face, Is.EqualTo(CubeRoomWall.West));
+            Assert.That(created.DeviceWall.Anchors, Has.Count.EqualTo(16));
             Assert.That(layout.PrimaryRoom.GetConnectedRoom(CubeRoomWall.East), Is.SameAs(created));
             Assert.That(created.GetConnectedRoom(CubeRoomWall.West), Is.SameAs(layout.PrimaryRoom));
             Assert.That(layout.PrimaryRoom.HasDoorway(CubeRoomWall.East), Is.True);
@@ -199,21 +205,19 @@ namespace WhatLightRemains.Tests
         }
 
         [UnityTest]
-        public IEnumerator NewRoomsUseCurrentAndFutureGlobalGlassOpacity()
+        public IEnumerator NewRoomsUseFixedAuthoredGlassOpacity()
         {
             yield return LoadFoundation();
             CubeRoomClusterGenerator layout = FindInScene<CubeRoomClusterGenerator>().Single();
-            GlassOpacityControl opacity = FindInScene<GlassOpacityControl>().Single();
-            opacity.SetOpacity(0.42f);
             Assert.That(layout.TryPlaceRoom(layout.PrimaryRoom, CubeRoomWall.West, out CubeRoom created), Is.True);
             yield return null;
 
-            int overrideId = Shader.PropertyToID("_WLRGlassOpacityOverride");
-            Assert.That(Shader.GetGlobalFloat(overrideId), Is.EqualTo(0.42f).Within(0.001f));
             Assert.That(created.GetWallGlassRenderer(CubeRoomWall.West).sharedMaterial,
                 Is.SameAs(layout.PrimaryRoom.GetWallGlassRenderer(CubeRoomWall.West).sharedMaterial));
-            opacity.SetOpacity(0.77f);
-            Assert.That(Shader.GetGlobalFloat(overrideId), Is.EqualTo(0.77f).Within(0.001f));
+            Assert.That(created.GetWallGlassRenderer(CubeRoomWall.East).sharedMaterial.GetFloat("_Translucency"),
+                Is.EqualTo(0.05f).Within(0.001f));
+            Assert.That(created.DeviceWall.SmokedGlassMaterial.GetFloat("_Translucency"),
+                Is.EqualTo(0.10f).Within(0.001f));
         }
 
         [UnityTearDown]

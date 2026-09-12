@@ -33,6 +33,7 @@ namespace WhatLightRemains.Runtime
         [SerializeField, Min(0f)] private float gravityStrength = StandardGravityStrength;
         [SerializeField] private bool powerOn = true;
         [SerializeField] private CubeRoomLighting lighting;
+        [SerializeField] private DeviceWall deviceWall;
         [SerializeField] private RoomOccupancyVolume occupancyVolume;
         [SerializeField] private Renderer[] wallGlassRenderers = new Renderer[4];
         [SerializeField] private Collider[] wallBoundaryColliders = new Collider[4];
@@ -50,6 +51,7 @@ namespace WhatLightRemains.Runtime
         public Vector3 RoomUp => transform.up;
         public Vector3 GravityAcceleration => -RoomUp * gravityStrength;
         public CubeRoomLighting Lighting => lighting;
+        public DeviceWall DeviceWall => deviceWall;
         public RoomOccupancyVolume OccupancyVolume => occupancyVolume;
         public Vector3 InteriorSize => new Vector3(InteriorWidth, InteriorHeight, InteriorDepth);
         public CubeRoomCeilingBoundary CeilingBoundary => ceilingBoundary;
@@ -87,6 +89,13 @@ namespace WhatLightRemains.Runtime
                 occupancyVolume.Configure(this);
             }
             if (lighting != null) lighting.SetPowerState(powerOn);
+            deviceWall ??= GetComponent<DeviceWall>();
+        }
+
+        public void ConfigureDeviceWall(DeviceWall wall)
+        {
+            deviceWall = wall;
+            if (deviceWall != null) deviceWall.ConfigureOwner(this);
         }
 
         public void SetLightingEnabled(bool enabled)
@@ -299,6 +308,7 @@ namespace WhatLightRemains.Runtime
         private void Awake()
         {
             if (lighting != null) lighting.SetPowerState(powerOn);
+            deviceWall ??= GetComponent<DeviceWall>();
         }
 
         public Vector3 GetFaceAnchorLocal(CubeRoomFace face, CubeRoomWallAnchor anchor)

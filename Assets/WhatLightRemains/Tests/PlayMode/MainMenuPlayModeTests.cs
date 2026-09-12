@@ -33,7 +33,7 @@ namespace WhatLightRemains.Tests
             }
 
             Assert.That(SceneManager.GetActiveScene().name, Is.EqualTo("Foundation"));
-            Assert.That(Object.FindObjectsByType<CubeRoom>(FindObjectsInactive.Exclude, FindObjectsSortMode.None),
+            Assert.That(Object.FindObjectsByType<CubeRoom>(FindObjectsInactive.Exclude),
                 Has.Length.EqualTo(1));
 
             Scene foundationScene = SceneManager.GetActiveScene();

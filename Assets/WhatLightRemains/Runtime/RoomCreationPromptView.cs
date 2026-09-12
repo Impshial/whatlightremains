@@ -23,6 +23,7 @@ namespace WhatLightRemains.Runtime
 
         private bool isCreateMode;
         private bool isDeleteMode;
+        private bool isMapMode;
 
         public Text InstructionLabel => instructionLabel;
         public Text DeleteInstructionLabel => deleteInstructionLabel;
@@ -76,7 +77,21 @@ namespace WhatLightRemains.Runtime
         {
             if (traversalLabel == null) return;
             traversalLabel.text = TraverseText;
-            traversalLabel.gameObject.SetActive(visible && !isCreateMode && !isDeleteMode);
+            traversalLabel.gameObject.SetActive(visible && !isCreateMode && !isDeleteMode && !isMapMode);
+        }
+
+        public void SetMapMode(bool mapMode)
+        {
+            isMapMode = mapMode;
+            if (isMapMode)
+            {
+                HideAllLabels();
+                return;
+            }
+
+            if (isCreateMode) ApplyCreateModePresentation();
+            else if (isDeleteMode) ApplyDeleteModePresentation();
+            else ShowDefaultMode();
         }
 
         public void SetCreateMode(bool createMode)
@@ -89,6 +104,16 @@ namespace WhatLightRemains.Runtime
 
             isCreateMode = true;
             isDeleteMode = false;
+            if (isMapMode)
+            {
+                HideAllLabels();
+                return;
+            }
+            ApplyCreateModePresentation();
+        }
+
+        private void ApplyCreateModePresentation()
+        {
             if (instructionLabel != null)
             {
                 instructionLabel.gameObject.SetActive(true);
@@ -106,7 +131,7 @@ namespace WhatLightRemains.Runtime
                 return;
             }
 
-            bool visible = createMode && isCreateMode && ghostVisible;
+            bool visible = createMode && isCreateMode && ghostVisible && !isMapMode;
             rotationLabel.gameObject.SetActive(visible);
             if (!visible)
             {
@@ -128,6 +153,16 @@ namespace WhatLightRemains.Runtime
 
             isCreateMode = false;
             isDeleteMode = true;
+            if (isMapMode)
+            {
+                HideAllLabels();
+                return;
+            }
+            ApplyDeleteModePresentation();
+        }
+
+        private void ApplyDeleteModePresentation()
+        {
             if (instructionLabel != null) instructionLabel.gameObject.SetActive(false);
             if (deleteInstructionLabel != null)
             {
@@ -141,7 +176,7 @@ namespace WhatLightRemains.Runtime
         public void SetDeleteTarget(bool visible)
         {
             if (rotationLabel == null) return;
-            bool show = isDeleteMode && visible;
+            bool show = isDeleteMode && visible && !isMapMode;
             rotationLabel.gameObject.SetActive(show);
             if (show) rotationLabel.text = DeleteFocusText;
         }
@@ -150,6 +185,11 @@ namespace WhatLightRemains.Runtime
         {
             isCreateMode = false;
             isDeleteMode = false;
+            if (isMapMode)
+            {
+                HideAllLabels();
+                return;
+            }
             if (instructionLabel != null)
             {
                 instructionLabel.gameObject.SetActive(true);
@@ -170,6 +210,14 @@ namespace WhatLightRemains.Runtime
             rotationLabel.supportRichText = true;
             rotationLabel.text = RotationIdleText;
             rotationLabel.gameObject.SetActive(false);
+        }
+
+        private void HideAllLabels()
+        {
+            if (instructionLabel != null) instructionLabel.gameObject.SetActive(false);
+            if (deleteInstructionLabel != null) deleteInstructionLabel.gameObject.SetActive(false);
+            if (rotationLabel != null) rotationLabel.gameObject.SetActive(false);
+            if (traversalLabel != null) traversalLabel.gameObject.SetActive(false);
         }
 
         private void Awake()

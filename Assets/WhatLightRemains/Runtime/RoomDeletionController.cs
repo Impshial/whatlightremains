@@ -12,7 +12,6 @@ namespace WhatLightRemains.Runtime
         [SerializeField] private Camera gameplayCamera;
         [SerializeField] private CubeRoomClusterGenerator roomLayout;
         [SerializeField] private RoomCreationPromptView promptView;
-        [SerializeField] private Material outlineMaterial;
         [SerializeField] private RoomCreationController creationController;
         [SerializeField] private PlayerRoomTraversal roomTraversal;
 
@@ -23,13 +22,12 @@ namespace WhatLightRemains.Runtime
         public GameObject HighlightObject => highlight?.Root;
 
         public void Configure(FirstPersonInput inputSource, PlayerRoomTracker tracker, PlayerLook look,
-            Camera camera, Material material, RoomCreationController creation, PlayerRoomTraversal traversal)
+            Camera camera, RoomCreationController creation, PlayerRoomTraversal traversal)
         {
             input = inputSource;
             roomTracker = tracker;
             playerLook = look;
             gameplayCamera = camera;
-            outlineMaterial = material;
             creationController = creation;
             roomTraversal = traversal;
         }
@@ -44,7 +42,7 @@ namespace WhatLightRemains.Runtime
         public bool EnterDeleteMode()
         {
             ResolveDependencies();
-            if (!GameplayInputIsCaptured() || roomLayout == null || outlineMaterial == null
+            if (!GameplayInputIsCaptured() || roomLayout == null
                 || (roomTraversal != null && roomTraversal.IsOwningMovement))
             {
                 return false;
@@ -116,8 +114,13 @@ namespace WhatLightRemains.Runtime
         private void Update()
         {
             if (input == null) return;
+            if (WorldMapController.IsMapOpen)
+            {
+                if (IsDeleteMode) CancelDeleteMode();
+                return;
+            }
 
-            if (input.ReleaseCursorPressedThisFrame && IsDeleteMode)
+            if (input.EscapePressedThisFrame && IsDeleteMode)
             {
                 CancelDeleteMode();
                 return;
@@ -180,8 +183,8 @@ namespace WhatLightRemains.Runtime
 
         private void EnsureHighlight()
         {
-            if (highlight == null && outlineMaterial != null)
-                highlight = RoomDeletionHighlight.Create(outlineMaterial);
+            if (highlight == null)
+                highlight = RoomDeletionHighlight.Create();
         }
 
         private void SetFocus(CubeRoom room)

@@ -12,8 +12,10 @@ namespace WhatLightRemains.Runtime
         private InputAction moveAction;
         private InputAction lookAction;
         private InputAction jumpAction;
-        private InputAction releaseCursorAction;
-        private InputAction captureCursorAction;
+        private InputAction pauseAction;
+        private InputAction toggleMapAction;
+        private InputAction resetMapAction;
+        private InputAction centerMapAction;
         private InputAction toggleCreateAction;
         private InputAction placeRoomAction;
         private InputAction sprintAction;
@@ -33,8 +35,14 @@ namespace WhatLightRemains.Runtime
         public Vector2 Move => moveAction != null ? moveAction.ReadValue<Vector2>() : Vector2.zero;
         public Vector2 Look => lookAction != null ? lookAction.ReadValue<Vector2>() : Vector2.zero;
         public bool JumpPressedThisFrame => jumpAction != null && jumpAction.WasPressedThisFrame();
-        public bool ReleaseCursorPressedThisFrame => releaseCursorAction != null && releaseCursorAction.WasPressedThisFrame();
-        public bool CaptureCursorPressedThisFrame => captureCursorAction != null && captureCursorAction.WasPressedThisFrame();
+        public bool EscapePressedThisFrame => (pauseAction != null && pauseAction.WasPressedThisFrame())
+            || (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame);
+        public bool ToggleMapPressedThisFrame => (toggleMapAction != null && toggleMapAction.WasPressedThisFrame())
+            || (Keyboard.current != null && Keyboard.current.mKey.wasPressedThisFrame);
+        public bool ResetMapPressedThisFrame => (resetMapAction != null && resetMapAction.WasPressedThisFrame())
+            || (Keyboard.current != null && Keyboard.current.rKey.wasPressedThisFrame);
+        public bool CenterMapPressedThisFrame => (centerMapAction != null && centerMapAction.WasPressedThisFrame())
+            || (Keyboard.current != null && Keyboard.current.cKey.wasPressedThisFrame);
         public bool ToggleCreatePressedThisFrame => toggleCreateAction != null && toggleCreateAction.WasPressedThisFrame();
         public bool PlaceRoomPressedThisFrame => placeRoomAction != null && placeRoomAction.WasPressedThisFrame();
         public bool SprintHeld => IsPressed(sprintAction) || IsShiftPressed();
@@ -114,8 +122,10 @@ namespace WhatLightRemains.Runtime
             moveAction = FindAction(runtimeActions, "Player/Move", "Gameplay/Move", "Move");
             lookAction = FindAction(runtimeActions, "Player/Look", "Gameplay/Look", "Look");
             jumpAction = FindAction(runtimeActions, "Player/Jump", "Gameplay/Jump", "Jump");
-            releaseCursorAction = FindAction(runtimeActions, "Player/ReleaseCursor", "Gameplay/ReleaseCursor", "ReleaseCursor");
-            captureCursorAction = FindAction(runtimeActions, "Player/CaptureCursor", "Gameplay/CaptureCursor", "CaptureCursor");
+            pauseAction = FindAction(runtimeActions, "Player/Pause", "Gameplay/Pause", "Pause");
+            toggleMapAction = FindAction(runtimeActions, "Player/ToggleMap", "Gameplay/ToggleMap", "ToggleMap");
+            resetMapAction = FindAction(runtimeActions, "Player/ResetMap", "Gameplay/ResetMap", "ResetMap");
+            centerMapAction = FindAction(runtimeActions, "Player/CenterMap", "Gameplay/CenterMap", "CenterMap");
             toggleCreateAction = FindAction(runtimeActions, "Player/ToggleCreate", "Gameplay/ToggleCreate", "ToggleCreate");
             placeRoomAction = FindAction(runtimeActions, "Player/PlaceRoom", "Gameplay/PlaceRoom", "PlaceRoom");
             sprintAction = FindAction(runtimeActions, "Player/Sprint", "Gameplay/Sprint", "Sprint");
@@ -140,8 +150,10 @@ namespace WhatLightRemains.Runtime
             moveAction = null;
             lookAction = null;
             jumpAction = null;
-            releaseCursorAction = null;
-            captureCursorAction = null;
+            pauseAction = null;
+            toggleMapAction = null;
+            resetMapAction = null;
+            centerMapAction = null;
             toggleCreateAction = null;
             placeRoomAction = null;
             sprintAction = null;

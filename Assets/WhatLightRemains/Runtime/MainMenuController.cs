@@ -41,6 +41,7 @@ namespace WhatLightRemains.Runtime
 
         private void Awake()
         {
+            Time.timeScale = 1f;
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
             if (menuGroup != null)

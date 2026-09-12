@@ -23,11 +23,46 @@ The current Windows development build is written to `Build/Windows/WhatLightRema
 - Hold either `Ctrl` and use the mouse wheel: rotate the preview 90° per detent around the source room's local Y axis
 - Hold `Ctrl` + either `Alt` and use the mouse wheel: rotate the preview 90° per detent around the source room's local Z axis
 - Left click with a valid preview: create the room and configure all shared boundaries
-- `Escape`: cancel Create mode and release the cursor
-- Left click while released: recapture the cursor
-- Glass opacity: press `Escape`, then drag the upper-right slider from 0% through 100% (3.5% default)
+- `Delete`: enter Delete mode; aim through the first face of the current room at a directly adjacent non-primary room
+- Right click on a red-tinted room: delete that room and rebuild the remaining shared boundaries
+- `M`: open or close the live 3D world map, initially centered on the player and aligned to the player's current room orientation
+- Map controls: left-drag orbits the current focal point, middle-drag moves/pans the map, RMB levels the room under the center reticle, and the mouse wheel zooms. Orbit uses a small hysteresis zone to suppress wobble while still allowing horizontal/vertical axis changes during the same drag
+- `C` while the map is open: smoothly recenter on the player without changing the current orbit or zoom
+- `R` while the map is open: restore the exact player-centered view captured when the map opened
+- `Escape`: close the map when it is open; otherwise cancel Create/Delete mode first, or open Pause from default gameplay
+- Pause menu: resume, reset the generated world, return to the main menu, or quit to desktop
 
-The bottom-center Create-mode hint shows `Hold Ctrl to Rotate`, changes to the active mouse-wheel axis while the modifier is held, and disappears after leaving Create mode. The existing bottom-left create/finalize prompt remains available.
+The gameplay cursor remains captured. Free mouse control is available only on the main menu, Pause menu, and 3D map interface.
+
+The bottom-center Create-mode hint shows `Hold Ctrl to Rotate`, changes to the active mouse-wheel axis while the modifier is held, and disappears after leaving Create mode. Gameplay Create/Delete prompts are hidden while the map is open. Normal gameplay uses a larger plus reticle; map mode replaces it with a compact circular marker on the exact room-selection ray used by RMB.
+
+## Player vitals and shared oxygen
+
+The upper-left HUD has three 72-pixel circular indicators, stacked with 28-pixel left / 24-pixel top margins at the 1920×1080 Canvas reference size. Health is muted red with a heart, Hunger is amber with utensils, and Oxygen is cyan with an air symbol. The colored ring shows the current fraction clockwise from twelve o'clock, exposing the dark track as it empties. Centered white icons identify the reserves; there are no labels or numbers beside them. These circles follow the user's visual reference and subsequent clarification instead of the labeled horizontal bars described in the milestone document.
+
+`PlayerVitals` on `Player.prefab` owns Health and Hunger. `WorldOxygenReserve` on the scene's **World Session** root owns the single shared Oxygen reserve, including disconnected rooms. Every value starts at **100 / 100**. Hunger means food remaining: full is fully fed and zero is empty. Oxygen is an abstract world supply with a placeholder capacity of 100, independent of room count, volume, and connectivity.
+
+Inspector starting values and maxima are captured when the scene session initializes. Runtime `Current`, `Max`, and `Normalized` properties are read-only. Maxima must be finite and positive; malformed configuration repairs to 100. Nonfinite starting configuration repairs to full, and other starting values clamp to capacity. Inspector edits made during a running session apply to the next session. There are no runtime capacity upgrades.
+
+All Add/Remove methods require finite nonnegative amounts and throw `ArgumentOutOfRangeException` for invalid input without changing state. Set methods accept any finite value and clamp it to `[0, maximum]`; NaN and infinities throw. Effective changes emit one `Action<float, float>` event with `(current, maximum)`: `HealthChanged`, `HungerChanged`, or `OxygenChanged`. No-op calls emit nothing. `ResetToStartingValues()` restores each owner's captured starting configuration.
+
+Future systems can use explicitly supplied references:
+
+```csharp
+// Example only: no gameplay consumer runs these calls in this milestone.
+void ApplySupplies(PlayerVitals player, WorldOxygenReserve world)
+{
+    player.RemoveHealth(12.5f); // AddHealth / SetHealth are also available.
+    player.AddHunger(20f);     // RemoveHunger / SetHunger are also available.
+    world.RemoveOxygen(0.25f); // AddOxygen / SetOxygen are also available.
+}
+// Read HealthCurrent, HealthMax, HealthNormalized; HungerCurrent, HungerMax,
+// HungerNormalized; CurrentOxygen, MaxOxygen, OxygenNormalized.
+```
+
+`VitalsHudView` has explicit scene references to both owners. Enabling or rebinding reads their current snapshot and subscribes once; disabling or destroying the view removes its subscriptions. Gauges show in ordinary gameplay, Create/Delete, and traversal, and hide during map and Pause. The screen-space UI remains upright under rotated gravity and works without room lighting. Its graphics never block pointer input.
+
+Direct Foundation play, New Game, and Reset World create fresh scene-owned values. Pause/map retain them; returning to MainMenu destroys the session. There are no persistent vitals globals, automatic drains, healing, damage, starvation, suffocation, death, gameplay penalties, or debug controls. Existing movement and construction remain available at zero.
 
 ## Room construction
 
@@ -48,6 +83,8 @@ Rotation persists while Create mode remains active in the same source room. It r
 ## Presentation and player architecture
 
 - `CubeRoom.prefab` is a self-contained 8 m × 8 m × 8 m room with external 0.1 m boundaries, a 4 × 4 floor-tile texture layout, cleaner thick-glass transmission, structural floor/glass seam rails, and doorway/ceiling variants.
+- Every room has one fixed prefab-local West Device Wall. A new preview initializes its discrete yaw so that wall appears on the placement frame's left while preserving the source room's gravity; later room rotations carry the same wall with the cube. Its 10%-opaque smoked glass, dark metal frame, four rails, and 4 × 4 mounting-stud grid are clipped around authoritative apertures. The logical anchors provide atomic, physical-bounds-aware reservations for future devices, while their colored overlay remains hidden outside the room ghost.
+- Regular room glass is authored at a fixed 5% opacity. Delete mode adds a reversible transparent red wall tint without outline geometry or changing opacity.
 - `RoomGhostPreview` is a renderer-only copy of the exact room prefab. It uses separate low-opacity materials for glass, structure, and floor so internal door and frame details remain visible, plus a thin volume outline and centered 3D arrow pointing along the candidate room's local gravity direction. It contains no physics, lights, occupancy, room scripts, or gravity behavior.
 - Exactly eight primary light strips remain on each room: four vertical corner strips and four ceiling-perimeter strips. Their real-time emitters are distributed within the strip geometry rather than at room center.
 - Doorway frames use visible emission and embedded real-time emitters at exactly 50% of the room-strip power. Closed and non-owning boundary variants keep those lights disabled.
@@ -58,7 +95,8 @@ Rotation persists while Create mode remains active in the same source room. It r
 - Openings elevated relative to the current room's local floor can be targeted across the room and show exactly `Hold E to Traverse`. The same shared opening can therefore be walkable from one side and assisted from the other. Ladders and ladder-only triggers/input have been removed.
 - Assisted traversal follows a collision-checked quadratic Bézier built from lerps. The 0.65-second approach accelerates into the opening and finishes with the capsule dead center in the clear aperture; the passage crossing runs at 12 m/s before a controlled 6 m/s landing.
 - Every `CubeRoom` exposes an Inspector-visible `Power On` state plus `SetPower(bool)` and `TogglePower()`. Power is ON by default and independently controls that room's strip lights/emission and its side of shared doorway lighting without affecting gravity, collision, creation, or traversal.
-- `Hotbar.prefab` contains the eight-slot presentation hotbar, Create-mode hints, and glass-opacity control. The UI remains readable independently of room lighting.
+- `Hotbar.prefab` contains the eight-slot presentation hotbar, contextual creation/deletion hints, and the Pause menu. The UI remains readable independently of room lighting.
+- The 3D map uses a separate perspective camera to render the live room hierarchy—including current apertures, separators, lighting, rotations, and Device Wall hardware—rather than maintaining a duplicate map model. A depth-priority cyan arrow identifies the player even through room geometry.
 - `Foundation.unity` contains one authored primary room, one player rig, one HUD, and no generated neighbors.
 - `Validation.unity` remains a build-excluded lighting and gravity fixture.
 

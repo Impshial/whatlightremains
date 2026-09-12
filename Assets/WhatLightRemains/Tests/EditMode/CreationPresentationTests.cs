@@ -91,6 +91,19 @@ namespace WhatLightRemains.Tests
                 Assert.That(create.gameObject.activeSelf, Is.True);
                 Assert.That(delete.text, Is.EqualTo(RoomCreationPromptView.NormalDeleteText));
                 Assert.That(context.gameObject.activeSelf, Is.False);
+
+                prompt.SetMapMode(true);
+                prompt.SetCreateMode(false);
+                prompt.SetTraversalPrompt(true);
+                Assert.That(create.gameObject.activeSelf, Is.False);
+                Assert.That(delete.gameObject.activeSelf, Is.False);
+                Assert.That(context.gameObject.activeSelf, Is.False);
+                Assert.That(traversal.gameObject.activeSelf, Is.False,
+                    "Gameplay prompts must remain suppressed even if their controllers update during map mode.");
+
+                prompt.SetMapMode(false);
+                Assert.That(create.gameObject.activeSelf, Is.True);
+                Assert.That(delete.gameObject.activeSelf, Is.True);
             }
             finally
             {

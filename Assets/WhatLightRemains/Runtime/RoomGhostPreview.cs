@@ -21,16 +21,23 @@ namespace WhatLightRemains.Runtime
         private readonly Dictionary<Renderer, Renderer> rendererCopies = new();
         private readonly Dictionary<GameObject, GameObject> objectCopies = new();
         private readonly CubeRoom roomPrefab;
+        private readonly DeviceWall deviceWallPrefab;
         private readonly Material ghostGlassMaterial;
+        private readonly Material ghostDeviceGlassMaterial;
         private readonly Material ghostAccentMaterial;
+        private readonly DeviceWallGhostPresentation deviceWallPresentation;
         private GameObject dynamicApertureRoot;
 
-        private RoomGhostPreview(GameObject root, CubeRoom prefab, Material glass, Material accent)
+        private RoomGhostPreview(GameObject root, CubeRoom prefab, Material glass, Material deviceGlass,
+            Material accent, DeviceWallGhostPresentation devicePresentation)
         {
             Root = root;
             roomPrefab = prefab;
+            deviceWallPrefab = prefab != null ? prefab.DeviceWall : null;
             ghostGlassMaterial = glass;
+            ghostDeviceGlassMaterial = deviceGlass;
             ghostAccentMaterial = accent;
+            deviceWallPresentation = devicePresentation;
         }
 
         public GameObject Root { get; private set; }
@@ -43,9 +50,21 @@ namespace WhatLightRemains.Runtime
             if (material == null) throw new ArgumentNullException(nameof(material));
             GameObject root = new GameObject("Room Creation Ghost");
             Material glassMaterial = new Material(material);
+            Material deviceGlassMaterial = new Material(material);
             Material accentMaterial = new Material(material);
-            RoomGhostPreview preview = new RoomGhostPreview(root, prefab, glassMaterial, accentMaterial);
+            DeviceWall deviceWall = prefab != null ? prefab.DeviceWall : null;
+            ConfigureOpacityVariant(deviceGlassMaterial, "Ghost Smoked Device Glass", 0.035f);
+            if (deviceGlassMaterial.HasProperty("_BaseColor"))
+                deviceGlassMaterial.SetColor("_BaseColor", new Color(0.03f, 0.14f, 0.16f, 0.035f));
+            DeviceWallGhostPresentation devicePresentation = deviceWall != null
+                ? new DeviceWallGhostPresentation(root.transform, deviceWall.Face, material,
+                    deviceWall.AvailableMarkerMaterial ?? accentMaterial,
+                    deviceWall.BlockedMarkerMaterial ?? accentMaterial)
+                : null;
+            RoomGhostPreview preview = new RoomGhostPreview(root, prefab, glassMaterial,
+                deviceGlassMaterial, accentMaterial, devicePresentation);
             preview.ownedMaterials.Add(glassMaterial);
+            preview.ownedMaterials.Add(deviceGlassMaterial);
             preview.ownedMaterials.Add(accentMaterial);
             Material bodyMaterial = preview.CreateOpacityVariant(material, "Ghost Body", 0.10f);
             Material floorMaterial = preview.CreateFilledFloorMaterial(material);
@@ -67,6 +86,7 @@ namespace WhatLightRemains.Runtime
             if (Root == null || !candidate.IsValid) return;
             Root.transform.SetPositionAndRotation(candidate.Position, candidate.Rotation);
             ApplyPredictedDoorways(candidate);
+            deviceWallPresentation?.Refresh(candidate, Root.transform);
             Root.SetActive(true);
         }
 
@@ -79,6 +99,7 @@ namespace WhatLightRemains.Runtime
         {
             if (Root != null)
             {
+                deviceWallPresentation?.Dispose();
                 DestroyObject(Root);
                 Root = null;
             }
@@ -101,6 +122,8 @@ namespace WhatLightRemains.Runtime
             for (int index = 0; index < source.childCount; index++)
             {
                 Transform sourceChild = source.GetChild(index);
+                if (deviceWallPrefab != null
+                    && (deviceWallPrefab.HardwareRoot == sourceChild || deviceWallPrefab.OverlayRoot == sourceChild)) continue;
                 GameObject copy = new GameObject(sourceChild.name);
                 copy.transform.SetParent(parent, false);
                 copy.transform.localPosition = sourceChild.localPosition;
@@ -108,7 +131,7 @@ namespace WhatLightRemains.Runtime
                 copy.transform.localScale = sourceChild.localScale;
                 objectCopies[sourceChild.gameObject] = copy;
                 Material material = IsGlassVisual(sourceChild)
-                    ? glassMaterial
+                    ? IsDeviceWallGlassVisual(sourceChild) ? ghostDeviceGlassMaterial : glassMaterial
                     : IsFloorVisual(sourceChild) ? floorMaterial : bodyMaterial;
                 CopyRenderer(sourceChild, copy, material);
                 CopyVisualHierarchy(sourceChild, copy.transform, bodyMaterial, floorMaterial, glassMaterial);
@@ -336,20 +359,22 @@ namespace WhatLightRemains.Runtime
             float bottom = cv - aperture.Height * 0.5f;
             float top = cv + aperture.Height * 0.5f;
             const float half = 4f;
-            CreateGhostPanel(planeCenter, u, v, n, -half, left, -half, half);
-            CreateGhostPanel(planeCenter, u, v, n, right, half, -half, half);
-            CreateGhostPanel(planeCenter, u, v, n, left, right, -half, bottom);
-            CreateGhostPanel(planeCenter, u, v, n, left, right, top, half);
+            Material panelMaterial = deviceWallPrefab != null
+                && face == CubeRoom.ToFace(deviceWallPrefab.Face) ? ghostDeviceGlassMaterial : ghostGlassMaterial;
+            CreateGhostPanel(planeCenter, u, v, n, -half, left, -half, half, panelMaterial);
+            CreateGhostPanel(planeCenter, u, v, n, right, half, -half, half, panelMaterial);
+            CreateGhostPanel(planeCenter, u, v, n, left, right, -half, bottom, panelMaterial);
+            CreateGhostPanel(planeCenter, u, v, n, left, right, top, half, panelMaterial);
             CreateGhostFrame(center, u, v, n, aperture);
         }
 
         private void CreateGhostPanel(Vector3 planeCenter, Vector3 u, Vector3 v, Vector3 n,
-            float minU, float maxU, float minV, float maxV)
+            float minU, float maxU, float minV, float maxV, Material material)
         {
             if (maxU - minU <= 0.001f || maxV - minV <= 0.001f) return;
             CreateGhostCube("Predicted Glass", planeCenter + u * ((minU + maxU) * 0.5f)
                 + v * ((minV + maxV) * 0.5f), u, v, n,
-                new Vector3(maxU - minU, maxV - minV, 0.05f), ghostGlassMaterial);
+                new Vector3(maxU - minU, maxV - minV, 0.05f), material);
         }
 
         private void CreateGhostFrame(Vector3 center, Vector3 u, Vector3 v, Vector3 n, RoomAperture aperture)
@@ -434,6 +459,19 @@ namespace WhatLightRemains.Runtime
                     return true;
                 }
             }
+            return false;
+        }
+
+        private bool IsDeviceWallGlassVisual(Transform transform)
+        {
+            if (deviceWallPrefab == null || transform == null) return false;
+            Renderer renderer = transform.GetComponent<Renderer>();
+            if (renderer == null) return false;
+            CubeRoomWallBoundary boundary = roomPrefab.GetWallBoundary(deviceWallPrefab.Face);
+            if (boundary == null) return false;
+            if (boundary.ClosedGlassRenderer == renderer) return true;
+            foreach (Renderer doorway in boundary.DoorwayGlassRenderers)
+                if (doorway == renderer) return true;
             return false;
         }
 

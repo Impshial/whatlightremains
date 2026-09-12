@@ -78,114 +78,26 @@ namespace WhatLightRemains.Tests
         }
 
         [Test]
-        public void DeletionHighlight_IsRendererOnlyAndTracksRotatedRoomBounds()
+        public void DeletionHighlight_HasNoOutlineOrPhysicalComponents()
         {
-            Shader shader = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Standard");
-            Material material = new Material(shader);
-            RoomDeletionHighlight highlight = null;
+            RoomDeletionHighlight highlight = RoomDeletionHighlight.Create();
             try
             {
-                highlight = RoomDeletionHighlight.Create(material);
-                layout.PrimaryRoom.transform.SetPositionAndRotation(new Vector3(3f, 4f, 5f), Quaternion.Euler(0f, 0f, 90f));
                 highlight.Show(layout.PrimaryRoom);
-
                 Assert.That(highlight.IsVisible, Is.True);
-                LineRenderer[] lines = highlight.Root.GetComponentsInChildren<LineRenderer>(true);
-                Assert.That(lines, Has.Length.EqualTo(12));
-                foreach (LineRenderer line in lines)
-                {
-                    Assert.That(line.startWidth, Is.EqualTo(0.14f).Within(0.0001f));
-                    Assert.That(line.endWidth, Is.EqualTo(0.14f).Within(0.0001f));
-                }
-                Assert.That(highlight.Root.GetComponentsInChildren<Collider>(true), Is.Empty);
-                Assert.That(highlight.Root.GetComponentsInChildren<Light>(true), Is.Empty);
-                Assert.That(highlight.Root.transform.position, Is.EqualTo(layout.PrimaryRoom.transform.position));
-                Assert.That(Quaternion.Angle(highlight.Root.transform.rotation, layout.PrimaryRoom.transform.rotation),
-                    Is.LessThan(0.001f));
-            }
-            finally
-            {
-                highlight?.Dispose();
-                Object.DestroyImmediate(material);
-            }
-        }
-
-        [Test]
-        public void DeletionHighlight_OutlinesEveryTraversableApertureAndSkipsSealedFaces()
-        {
-            Shader shader = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Standard");
-            Material material = new Material(shader);
-            RoomDeletionHighlight highlight = null;
-            GameObject sideNeighborObject = new GameObject("Side Neighbor");
-            GameObject ceilingNeighborObject = new GameObject("Ceiling Neighbor");
-            GameObject sealedNeighborObject = new GameObject("Sealed Neighbor");
-            try
-            {
-                CubeRoom room = layout.PrimaryRoom;
-                room.transform.SetPositionAndRotation(new Vector3(3f, 4f, 5f), Quaternion.Euler(0f, 0f, 90f));
-                CubeRoom sideNeighbor = sideNeighborObject.AddComponent<CubeRoom>();
-                CubeRoom ceilingNeighbor = ceilingNeighborObject.AddComponent<CubeRoom>();
-                CubeRoom sealedNeighbor = sealedNeighborObject.AddComponent<CubeRoom>();
-
-                RoomAperture sideAperture = CreateLocalAperture(room, CubeRoomFace.East,
-                    new Vector3(4f, CubeRoom.DoorwayHeight * 0.5f, 0f),
-                    Vector3.forward, Vector3.up, CubeRoom.DoorwayWidth, CubeRoom.DoorwayHeight);
-                room.SetFaceConnection(CubeRoomFace.East, sideNeighbor, CubeRoomFace.West,
-                    RoomPassageKind.SideDoorway, RoomCeilingEdge.None, true, sideAperture);
-
-                RoomAperture ceilingAperture = CreateLocalAperture(room, CubeRoomFace.Ceiling,
-                    new Vector3(0f, CubeRoom.InteriorHeight, 0f),
-                    Vector3.right, Vector3.forward, CubeRoom.DoorwayHeight, CubeRoom.DoorwayHeight);
-                room.SetFaceConnection(CubeRoomFace.Ceiling, ceilingNeighbor, CubeRoomFace.Ceiling,
-                    RoomPassageKind.CeilingOpening, RoomCeilingEdge.None, true, ceilingAperture);
-
-                room.SetFaceConnection(CubeRoomFace.West, sealedNeighbor, CubeRoomFace.Floor,
-                    RoomPassageKind.Sealed, RoomCeilingEdge.None, true);
-
-                highlight = RoomDeletionHighlight.Create(material);
-                highlight.Show(room);
-
-                LineRenderer[] lines = highlight.Root.GetComponentsInChildren<LineRenderer>(false);
-                Assert.That(lines, Has.Length.EqualTo(20),
-                    "The room bounds need 12 edges and each of two traversable apertures needs four.");
-                foreach (LineRenderer line in lines)
-                {
-                    Assert.That(line.startWidth, Is.EqualTo(0.14f).Within(0.0001f));
-                    Assert.That(line.endWidth, Is.EqualTo(0.14f).Within(0.0001f));
-                    Assert.That(line.shadowCastingMode, Is.EqualTo(UnityEngine.Rendering.ShadowCastingMode.Off));
-                    Assert.That(line.receiveShadows, Is.False);
-                }
-
-                Transform sideEdgeObject = highlight.Root.transform.Find("Delete Aperture East Edge 01");
-                Transform ceilingEdgeObject = highlight.Root.transform.Find("Delete Aperture Ceiling Edge 01");
-                Assert.That(sideEdgeObject, Is.Not.Null);
-                Assert.That(ceilingEdgeObject, Is.Not.Null);
-                LineRenderer sideEdge = sideEdgeObject.GetComponent<LineRenderer>();
-                LineRenderer ceilingEdge = ceilingEdgeObject.GetComponent<LineRenderer>();
-                Assert.That(Vector3.Distance(sideEdge.GetPosition(0), new Vector3(3.975f, 0f, -1f)),
-                    Is.LessThan(0.001f), "The doorway outline should sit just inside the selected room face.");
-                Assert.That(Vector3.Distance(ceilingEdge.GetPosition(0), new Vector3(-1.2f, 7.975f, -1.2f)),
-                    Is.LessThan(0.001f), "The ceiling-opening outline should sit just inside the selected room face.");
-                Assert.That(highlight.Root.transform.Find("Delete Aperture West Edge 01"), Is.Null,
-                    "Sealed connections must not receive an aperture outline.");
+                Assert.That(highlight.Root.GetComponentsInChildren<LineRenderer>(true), Is.Empty);
                 Assert.That(highlight.Root.GetComponentsInChildren<Collider>(true), Is.Empty);
                 Assert.That(highlight.Root.GetComponentsInChildren<Light>(true), Is.Empty);
             }
             finally
             {
-                highlight?.Dispose();
-                Object.DestroyImmediate(material);
-                Object.DestroyImmediate(sideNeighborObject);
-                Object.DestroyImmediate(ceilingNeighborObject);
-                Object.DestroyImmediate(sealedNeighborObject);
+                highlight.Dispose();
             }
         }
 
         [Test]
         public void DeletionHighlight_TintsRoomAndSharedPassageGlassWithoutChangingOpacity()
         {
-            Shader shader = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Standard");
-            Material outlineMaterial = new Material(shader);
             RoomDeletionHighlight highlight = null;
             try
             {
@@ -197,11 +109,11 @@ namespace WhatLightRemains.Tests
                 Assert.That(passageGlass, Is.Not.Null);
                 float originalOpacity = roomGlass.sharedMaterial.GetFloat("_Translucency");
 
-                highlight = RoomDeletionHighlight.Create(outlineMaterial);
+                highlight = RoomDeletionHighlight.Create();
                 highlight.Show(selectedRoom);
 
-                AssertDeleteTint(roomGlass, 0.15f);
-                AssertDeleteTint(passageGlass, 0.15f);
+                AssertDeleteTint(roomGlass, 0.22f);
+                AssertDeleteTint(passageGlass, 0.22f);
                 Assert.That(roomGlass.sharedMaterial.GetFloat("_Translucency"), Is.EqualTo(originalOpacity));
 
                 highlight.Hide();
@@ -212,7 +124,6 @@ namespace WhatLightRemains.Tests
             finally
             {
                 highlight?.Dispose();
-                Object.DestroyImmediate(outlineMaterial);
             }
         }
 

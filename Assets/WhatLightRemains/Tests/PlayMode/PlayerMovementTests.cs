@@ -315,47 +315,6 @@ namespace WhatLightRemains.Tests
                 "Normal movement must be restored after the automatic transition.");
         }
 
-        [UnityTest]
-        public IEnumerator CursorControls_ReleaseAndRecaptureThroughPlayerLook()
-        {
-            PlayerLook look = motor.GetComponent<PlayerLook>();
-            Assert.That(look, Is.Not.Null);
-
-            look.ReleaseCursor();
-            Assert.That(Cursor.lockState, Is.EqualTo(CursorLockMode.None));
-            Assert.That(look.IsCursorCaptured, Is.False);
-
-            look.CaptureCursor();
-            Assert.That(look.IsCursorCaptured, Is.True);
-            if (!Application.isBatchMode)
-            {
-                Assert.That(Cursor.lockState, Is.EqualTo(CursorLockMode.Locked));
-            }
-
-            look.ReleaseCursor();
-            Assert.That(look.IsCursorCaptured, Is.False);
-            yield return null;
-        }
-
-        [UnityTest]
-        public IEnumerator GlassOpacityControl_AppliesGlobalRuntimeOverride()
-        {
-            GlassOpacityControl opacityControl = FindInScene<GlassOpacityControl>();
-            Assert.That(opacityControl.MinimumOpacity, Is.EqualTo(0f).Within(0.0001f));
-            Assert.That(opacityControl.MaximumOpacity, Is.EqualTo(1f).Within(0.0001f));
-
-            opacityControl.SetOpacity(0.09f);
-            yield return null;
-
-            Assert.That(opacityControl.Opacity, Is.EqualTo(0.09f).Within(0.0001f));
-            Assert.That(
-                Shader.GetGlobalFloat("_WLRGlassOpacityOverride"),
-                Is.EqualTo(0.09f).Within(0.0001f));
-            Assert.That(
-                Shader.GetGlobalFloat("_WLRGlassOpacityOverrideEnabled"),
-                Is.EqualTo(1f).Within(0.0001f));
-        }
-
         private IEnumerator ResetPlayer(Vector3? requestedLocalForward = null)
         {
             Vector3 localForward = requestedLocalForward ?? Vector3.forward;

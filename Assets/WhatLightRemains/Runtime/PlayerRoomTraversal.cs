@@ -87,6 +87,11 @@ namespace WhatLightRemains.Runtime
         private void Update()
         {
             ResolveReferences();
+            if (WorldMapController.IsMapOpen)
+            {
+                ClearTarget();
+                return;
+            }
             bool held = input != null && input.TraverseHeld;
             if (!held) inputArmed = true;
             if (!focused) return;
@@ -94,7 +99,7 @@ namespace WhatLightRemains.Runtime
             if (IsOwningMovement)
             {
                 promptView?.SetTraversalPrompt(false);
-                if (!committed && (!held || input.ReleaseCursorPressedThisFrame))
+                if (!committed && (!held || input.EscapePressedThisFrame))
                 {
                     CancelOrFinish(false);
                     return;

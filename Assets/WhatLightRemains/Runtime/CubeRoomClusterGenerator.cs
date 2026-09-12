@@ -432,6 +432,13 @@ namespace WhatLightRemains.Runtime
                     }
                 }
             }
+
+            // Device Walls derive their available anchors and clipped hardware from the same
+            // authoritative connections used by the shared passage renderer. Refresh only
+            // after the full topology is consistent so no room observes a half-built layout.
+            foreach (CubeRoom room in rooms)
+                if (room != null && room.DeviceWall != null)
+                    room.DeviceWall.RefreshFromConnections();
         }
 
         private static bool DetermineBoundaryOwner(int firstIndex, int secondIndex, CubeRoomFace firstFace, CubeRoomFace secondFace, RoomPassageKind passage)

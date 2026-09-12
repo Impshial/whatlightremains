@@ -68,6 +68,7 @@ namespace WhatLightRemains.Runtime
         {
             externalGeometryOwnsBoundary = owned;
             ApplyState();
+            NotifyStateChanged();
         }
 
         public void Configure(Renderer[] newClosedRenderers, Collider[] newClosedColliders, EdgeVariant[] newEdgeVariants)
@@ -122,7 +123,16 @@ namespace WhatLightRemains.Runtime
                 SetEnabled(variant.Colliders, showVariant);
                 if (variant.PassageRoot != null)
                 {
-                    variant.PassageRoot.SetActive(showVariant);
+                    // Runtime RoomPassage owns the aperture glass, frame, and collision, but
+                    // a ceiling-to-side aperture still needs the authored split light-strip
+                    // segments. Keep only those renderers alive so the full edge strip never
+                    // crosses through the opening.
+                    bool showSplitLighting = externalGeometryOwnsBoundary
+                        && connected
+                        && passageKind == RoomPassageKind.CeilingToSideDoorway
+                        && variant.Edge == ceilingEdge;
+                    if (showSplitLighting) SetSplitLightingEnabled(variant.Renderers, true);
+                    variant.PassageRoot.SetActive(showVariant || showSplitLighting);
                     if (showVariant)
                     {
                         ActivePassageRoot = variant.PassageRoot;
@@ -136,8 +146,7 @@ namespace WhatLightRemains.Runtime
                 GameObject crossingRoot = edgeCrossingRoots[index];
                 if (crossingRoot == null) continue;
                 RoomCeilingEdge edge = (RoomCeilingEdge)(index + 1);
-                bool crossesActiveOpening = !externalGeometryOwnsBoundary && ownsBoundary
-                    && connected
+                bool crossesActiveOpening = connected
                     && passageKind == RoomPassageKind.CeilingToSideDoorway
                     && ceilingEdge == edge;
                 crossingRoot.SetActive(!crossesActiveOpening);
@@ -178,6 +187,18 @@ namespace WhatLightRemains.Runtime
             foreach (Collider collider in colliders)
             {
                 if (collider != null) collider.enabled = enabled;
+            }
+        }
+
+        private static void SetSplitLightingEnabled(IEnumerable<Renderer> renderers, bool enabled)
+        {
+            if (renderers == null) return;
+            foreach (Renderer renderer in renderers)
+            {
+                if (renderer == null) continue;
+                bool isSplitLighting = renderer.name.StartsWith("Strip Ceiling Passage", StringComparison.Ordinal)
+                    || renderer.name.StartsWith("Housing Ceiling Passage", StringComparison.Ordinal);
+                if (isSplitLighting) renderer.enabled = enabled;
             }
         }
     }

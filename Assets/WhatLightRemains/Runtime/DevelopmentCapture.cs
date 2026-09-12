@@ -94,20 +94,23 @@ namespace WhatLightRemains.Runtime
             {
                 yield return null;
                 PlayerLook look = FindAnyObjectByType<PlayerLook>();
-                if (look == null)
+                PauseMenuController pause = FindAnyObjectByType<PauseMenuController>();
+                if (look == null || pause == null)
                 {
                     cursorSmokePassed = false;
                 }
                 else
                 {
-                    look.ReleaseCursor();
+                    pause.Pause();
                     yield return null;
-                    bool released = !look.IsCursorCaptured && Cursor.lockState == CursorLockMode.None && Cursor.visible;
-                    look.CaptureCursor();
+                    bool releasedForMenu = PauseMenuController.IsPaused && pause.MenuRoot.activeSelf
+                        && !look.IsCursorCaptured && Cursor.lockState == CursorLockMode.None && Cursor.visible;
+                    pause.Resume();
                     yield return null;
-                    bool captured = look.IsCursorCaptured && Cursor.lockState == CursorLockMode.Locked && !Cursor.visible;
-                    cursorSmokePassed = released && captured;
-                    Debug.Log($"Cursor smoke: release={released}, recapture={captured}.");
+                    bool gameplayCaptured = !PauseMenuController.IsPaused && !pause.MenuRoot.activeSelf
+                        && look.IsCursorCaptured && Cursor.lockState == CursorLockMode.Locked && !Cursor.visible;
+                    cursorSmokePassed = releasedForMenu && gameplayCaptured;
+                    Debug.Log($"Cursor smoke: pauseMenu={releasedForMenu}, gameplay={gameplayCaptured}.");
                 }
             }
 

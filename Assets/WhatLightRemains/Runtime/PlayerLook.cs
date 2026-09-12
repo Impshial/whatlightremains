@@ -95,20 +95,6 @@ namespace WhatLightRemains.Runtime
                 return;
             }
 
-            if (input.ReleaseCursorPressedThisFrame)
-            {
-                ReleaseCursor();
-            }
-            else if (input.CaptureCursorPressedThisFrame
-                && Cursor.lockState != CursorLockMode.Locked
-                && !GlassOpacityControl.IsPointerOverControl())
-            {
-                CaptureCursor();
-                // Ignore the delta produced by the click that recaptures the cursor.
-                // Otherwise an unlocked pointer can cause a visible one-frame snap.
-                return;
-            }
-
             if (!IsCursorCaptured || Cursor.lockState != CursorLockMode.Locked || yawRoot == null || pitchCamera == null)
             {
                 return;
@@ -122,10 +108,8 @@ namespace WhatLightRemains.Runtime
 
         private void OnApplicationFocus(bool hasFocus)
         {
-            if (!hasFocus)
-            {
-                ReleaseCursor();
-            }
+            if (!hasFocus) IsCursorCaptured = false;
+            else if (!PauseMenuController.IsPaused && !WorldMapController.IsMapOpen) CaptureCursor();
         }
 
         private void ReadInitialPitch()

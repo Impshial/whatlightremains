@@ -20,6 +20,7 @@ namespace WhatLightRemains.Runtime
         private RoomPlacementCandidate candidate;
         private CubeRoom orientationSourceRoom;
         private RoomOrientation previewOrientation = RoomOrientation.Identity;
+        private bool placementFrameInitialized;
 
         public bool IsCreateMode { get; private set; }
         public bool HasValidPreview => candidate.IsValid && preview != null && preview.IsVisible;
@@ -56,6 +57,7 @@ namespace WhatLightRemains.Runtime
             IsCreateMode = true;
             orientationSourceRoom = null;
             previewOrientation = RoomOrientation.Identity;
+            placementFrameInitialized = false;
             input?.ClearRotationScroll();
             ClearCandidate();
             promptView?.SetCreateMode(true);
@@ -68,6 +70,7 @@ namespace WhatLightRemains.Runtime
             candidate = default;
             orientationSourceRoom = null;
             previewOrientation = RoomOrientation.Identity;
+            placementFrameInitialized = false;
             input?.ClearRotationScroll();
             DisposePreview();
             promptView?.SetCreateMode(false);
@@ -92,7 +95,7 @@ namespace WhatLightRemains.Runtime
                 return false;
             }
 
-            EnsureOrientationForRoom(currentRoom);
+            EnsureOrientationForTarget(currentRoom, face);
             if (!roomLayout.TryGetPlacementCandidate(currentRoom, face, previewOrientation, out RoomPlacementCandidate proposed))
             {
                 ClearCandidate();
@@ -138,8 +141,13 @@ namespace WhatLightRemains.Runtime
         private void Update()
         {
             if (input == null) return;
+            if (WorldMapController.IsMapOpen)
+            {
+                if (IsCreateMode) CancelCreateMode();
+                return;
+            }
 
-            if (input.ReleaseCursorPressedThisFrame && IsCreateMode)
+            if (input.EscapePressedThisFrame && IsCreateMode)
             {
                 CancelCreateMode();
                 return;
@@ -164,7 +172,7 @@ namespace WhatLightRemains.Runtime
             ApplyRotationInput();
             Ray viewRay = GetCenterViewRay();
             RefreshTarget(viewRay);
-            if (input.PlaceRoomPressedThisFrame && !GlassOpacityControl.IsPointerOverControl())
+            if (input.PlaceRoomPressedThisFrame)
             {
                 TryFinalizePlacement(viewRay);
             }
@@ -248,7 +256,8 @@ namespace WhatLightRemains.Runtime
 
         private void EnsureOrientationForRoom(CubeRoom currentRoom)
         {
-            if (currentRoom == orientationSourceRoom) return;
+            if (currentRoom == orientationSourceRoom && placementFrameInitialized) return;
+            if (currentRoom != orientationSourceRoom) placementFrameInitialized = false;
             orientationSourceRoom = currentRoom;
             input?.ClearRotationScroll();
             previewOrientation = roomLayout != null && roomLayout.TryGetOrientation(currentRoom, out RoomOrientation registered)
@@ -256,6 +265,47 @@ namespace WhatLightRemains.Runtime
                 : roomLayout != null && roomLayout.PrimaryRoom != null
                     ? RoomOrientation.FromRotation(currentRoom.transform.rotation, roomLayout.PrimaryRoom.transform.rotation)
                     : RoomOrientation.Identity;
+        }
+
+        private void EnsureOrientationForTarget(CubeRoom currentRoom, CubeRoomFace sourceFace)
+        {
+            if (placementFrameInitialized && currentRoom == orientationSourceRoom) return;
+            EnsureOrientationForRoom(currentRoom);
+            if (roomLayout == null || currentRoom == null) return;
+            RoomOrientation source = roomLayout.TryGetOrientation(currentRoom, out RoomOrientation registered)
+                ? registered : previewOrientation;
+            previewOrientation = CalculateInitialDeviceWallOrientation(source, sourceFace);
+            placementFrameInitialized = true;
+        }
+
+        public static RoomOrientation CalculateInitialDeviceWallOrientation(RoomOrientation source,
+            CubeRoomFace sourceFace)
+        {
+            Vector3Int placementDirection = source.TransformDirection(CubeRoom.GetGridDirection(sourceFace));
+            Vector3Int referenceUp = source.Up;
+            if (Mathf.Abs(Dot(placementDirection, referenceUp)) == 1)
+                referenceUp = source.Forward;
+            Vector3Int desiredLeft = Cross(placementDirection, referenceUp);
+            for (int turns = 0; turns < 4; turns++)
+            {
+                RoomOrientation candidate = source.RotateAroundGridAxis(source.Up, turns);
+                if (candidate.TransformDirection(Vector3Int.left) != desiredLeft) continue;
+                return candidate;
+            }
+            return source;
+        }
+
+        private static Vector3Int Cross(Vector3Int first, Vector3Int second)
+        {
+            return new Vector3Int(
+                first.y * second.z - first.z * second.y,
+                first.z * second.x - first.x * second.z,
+                first.x * second.y - first.y * second.x);
+        }
+
+        private static int Dot(Vector3Int first, Vector3Int second)
+        {
+            return first.x * second.x + first.y * second.y + first.z * second.z;
         }
 
         private void UpdateRotationPrompt()

@@ -25,6 +25,7 @@ namespace WhatLightRemains.Editor
     /// </summary>
     public static class FoundationBuilder
     {
+        private const string PendingBuildRequestPath = "Library/WhatLightRemains.FoundationBuild.request";
         private const string GeneratedRoot = "Assets/WhatLightRemains/Generated";
         private const string MaterialsFolder = GeneratedRoot + "/Materials";
         private const string PrefabsFolder = GeneratedRoot + "/Prefabs";
@@ -32,12 +33,17 @@ namespace WhatLightRemains.Editor
         private const string ScenesFolder = GeneratedRoot + "/Scenes";
 
         private const string GlassMaterialPath = MaterialsFolder + "/ClearGlass.mat";
+        private const string DeviceWallGlassMaterialPath = MaterialsFolder + "/DeviceWallGlass.mat";
+        private const string DeviceWallMetalMaterialPath = MaterialsFolder + "/DeviceWallMetal.mat";
+        private const string DeviceAnchorAvailableMaterialPath = MaterialsFolder + "/DeviceAnchorAvailable.mat";
+        private const string DeviceAnchorBlockedMaterialPath = MaterialsFolder + "/DeviceAnchorBlocked.mat";
+        private const string MapPlayerMarkerMaterialPath = MaterialsFolder + "/MapPlayerMarker.mat";
         private const string FloorMaterialPath = MaterialsFolder + "/Floor.mat";
         private const string StripMaterialPath = MaterialsFolder + "/LightStrip.mat";
         private const string StripHousingMaterialPath = MaterialsFolder + "/LightStripHousing.mat";
         private const string BaseRailMaterialPath = MaterialsFolder + "/BaseRail.mat";
         private const string RoomPreviewMaterialPath = MaterialsFolder + "/RoomPreview.mat";
-        private const string RoomDeleteOutlineMaterialPath = MaterialsFolder + "/RoomDeleteOutline.mat";
+        private const string LegacyRoomDeleteOutlineMaterialPath = MaterialsFolder + "/RoomDeleteOutline.mat";
         private const string HandMaterialPath = MaterialsFolder + "/Hand.mat";
         private const string ToolMaterialPath = MaterialsFolder + "/Tool.mat";
         private const string TestMaterialPath = MaterialsFolder + "/ValidationSurface.mat";
@@ -84,6 +90,30 @@ namespace WhatLightRemains.Editor
             TryBuildAll();
         }
 
+        [InitializeOnLoadMethod]
+        private static void CompletePendingBuildRequest()
+        {
+            if (!File.Exists(PendingBuildRequestPath)) return;
+            EditorApplication.update -= TryCompletePendingBuildRequest;
+            EditorApplication.update += TryCompletePendingBuildRequest;
+        }
+
+        private static void TryCompletePendingBuildRequest()
+        {
+            if (!File.Exists(PendingBuildRequestPath))
+            {
+                EditorApplication.update -= TryCompletePendingBuildRequest;
+                return;
+            }
+            if (EditorApplication.isCompiling || EditorApplication.isUpdating
+                || EditorApplication.isPlayingOrWillChangePlaymode) return;
+
+            EditorApplication.update -= TryCompletePendingBuildRequest;
+            if (!TryBuildAll()) return;
+            File.Delete(PendingBuildRequestPath);
+            EditorApplication.delayCall += FoundationTestRunner.RunAllTests;
+        }
+
         private static bool TryBuildAll()
         {
             if (!Application.isBatchMode && !EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
@@ -110,21 +140,28 @@ namespace WhatLightRemains.Editor
                 if (menuFont == null) throw new InvalidOperationException("Missing main-menu font: " + MenuFontPath);
 
                 Material glass = CreateGlassMaterial(glassDetail, glassNormal);
+                Material deviceWallGlass = CreateDeviceWallGlassMaterial(glassDetail, glassNormal);
+                Material deviceWallMetal = CreateDeviceWallMetalMaterial();
+                Material deviceAnchorAvailable = CreateAnchorMarkerMaterial(DeviceAnchorAvailableMaterialPath,
+                    new Color(0.02f, 3.5f, 0.20f, 0.95f));
+                Material deviceAnchorBlocked = CreateAnchorMarkerMaterial(DeviceAnchorBlockedMaterialPath,
+                    new Color(4f, 0.02f, 0.015f, 0.95f));
+                Material mapPlayerMarker = CreateMapMarkerMaterial();
                 Material floor = CreateFloorMaterial(floorBaseColor, floorNormal);
                 Material strip = CreateStripMaterial();
                 Material stripHousing = CreateStripHousingMaterial();
                 Material baseRail = CreateBaseRailMaterial();
                 Material roomPreview = CreateRoomPreviewMaterial();
-                Material roomDeleteOutline = CreateRoomDeleteOutlineMaterial();
                 Material hand = CreateLitMaterial(HandMaterialPath, new Color(0.62f, 0.31f, 0.20f, 1f), 0.38f);
                 Material tool = CreateLitMaterial(ToolMaterialPath, new Color(0.18f, 0.24f, 0.32f, 1f), 0.62f);
                 Material validation = CreateLitMaterial(TestMaterialPath, new Color(0.50f, 0.51f, 0.53f, 1f), 0.30f);
                 InputActionAsset inputActions = CreateInputActions();
                 Sprite toolIcon = CreateToolIcon();
 
-                GameObject cubePrefab = CreateCubePrefab(glass, floor, strip, stripHousing, baseRail);
-                GameObject playerPrefab = CreatePlayerPrefab(inputActions, hand, tool, roomPreview, roomDeleteOutline, layers);
-                GameObject hotbarPrefab = CreateHotbarPrefab(toolIcon);
+                GameObject cubePrefab = CreateCubePrefab(glass, deviceWallGlass, deviceWallMetal,
+                    deviceAnchorAvailable, deviceAnchorBlocked, floor, strip, stripHousing, baseRail);
+                GameObject playerPrefab = CreatePlayerPrefab(inputActions, hand, tool, roomPreview, layers);
+                GameObject hotbarPrefab = CreateHotbarPrefab(toolIcon, menuFont, mapPlayerMarker, layers);
 
                 CreateMainMenuScene(menuArtwork, menuFont);
                 CreateFoundationScene(cubePrefab, playerPrefab, hotbarPrefab);
@@ -231,6 +268,7 @@ namespace WhatLightRemains.Editor
             {
                 AssetDatabase.DeleteAsset(LegacyNoPostProcessingSettingsFolder);
             }
+            AssetDatabase.DeleteAsset(LegacyRoomDeleteOutlineMaterialPath);
         }
 
         private static LayerIds ConfigureLayers()
@@ -506,7 +544,7 @@ namespace WhatLightRemains.Editor
             SetFloat(material, "_DistortionPixels", 2.5f);
             SetFloat(material, "_DistortionBlend", 0.55f);
             SetFloat(material, "_DistortionMip", 4f);
-            SetFloat(material, "_Translucency", 0.035f);
+            SetFloat(material, "_Translucency", 0.05f);
             SetFloat(material, "_Cull", (float)CullMode.Off);
             SetFloat(material, "_SrcBlend", (float)BlendMode.One);
             SetFloat(material, "_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
@@ -518,6 +556,74 @@ namespace WhatLightRemains.Editor
             material.shaderKeywords = Array.Empty<string>();
             material.SetOverrideTag("RenderType", "Transparent");
             material.renderQueue = (int)RenderQueue.Transparent;
+            material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
+            EditorUtility.SetDirty(material);
+            return material;
+        }
+
+        private static Material CreateDeviceWallGlassMaterial(Texture2D detail, Texture2D normal)
+        {
+            Material material = LoadOrCreateMaterial(DeviceWallGlassMaterialPath,
+                "What Light Remains/Light-Transmitting Glass");
+            SetTexture(material, "_BaseMap", detail, Vector2.one);
+            SetTexture(material, "_BumpMap", normal, Vector2.one);
+            SetColor(material, "_Tint", new Color(0.11f, 0.15f, 0.17f, 1f));
+            SetColor(material, "_GlassTint", new Color(0.035f, 0.055f, 0.065f, 1f));
+            SetFloat(material, "_ImperfectionStrength", 0.003f);
+            SetFloat(material, "_NormalDetailStrength", 1f);
+            SetFloat(material, "_DetailContrast", 4f);
+            SetFloat(material, "_DetailThreshold", 0.02f);
+            SetFloat(material, "_HighPassMip", 5f);
+            SetFloat(material, "_DistortionPixels", 2.5f);
+            SetFloat(material, "_DistortionBlend", 0.55f);
+            SetFloat(material, "_DistortionMip", 4f);
+            SetFloat(material, "_Translucency", 0.10f);
+            SetFloat(material, "_Cull", (float)CullMode.Off);
+            SetFloat(material, "_SrcBlend", (float)BlendMode.One);
+            SetFloat(material, "_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
+            SetFloat(material, "_ZWrite", 0f);
+            material.shaderKeywords = Array.Empty<string>();
+            material.SetOverrideTag("RenderType", "Transparent");
+            material.renderQueue = (int)RenderQueue.Transparent;
+            material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
+            EditorUtility.SetDirty(material);
+            return material;
+        }
+
+        private static Material CreateDeviceWallMetalMaterial()
+        {
+            Material material = CreateLitMaterial(DeviceWallMetalMaterialPath,
+                new Color(0.08f, 0.10f, 0.12f, 1f), 0.48f);
+            SetFloat(material, "_Metallic", 0.72f);
+            EditorUtility.SetDirty(material);
+            return material;
+        }
+
+        private static Material CreateAnchorMarkerMaterial(string path, Color color)
+        {
+            Material material = LoadOrCreateMaterial(path, "Universal Render Pipeline/Unlit");
+            SetColor(material, "_BaseColor", color);
+            SetColor(material, "_Color", color);
+            SetFloat(material, "_Surface", 1f);
+            SetFloat(material, "_Blend", 1f);
+            SetFloat(material, "_Cull", (float)CullMode.Off);
+            SetFloat(material, "_SrcBlend", (float)BlendMode.One);
+            SetFloat(material, "_DstBlend", (float)BlendMode.One);
+            SetFloat(material, "_ZWrite", 0f);
+            material.SetOverrideTag("RenderType", "Transparent");
+            material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            material.renderQueue = (int)RenderQueue.Transparent + 120;
+            material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
+            EditorUtility.SetDirty(material);
+            return material;
+        }
+
+        private static Material CreateMapMarkerMaterial()
+        {
+            Material material = LoadOrCreateMaterial(MapPlayerMarkerMaterialPath,
+                "What Light Remains/Map Marker");
+            SetColor(material, "_BaseColor", new Color(0.04f, 2.8f, 4f, 1f));
+            material.renderQueue = (int)RenderQueue.Overlay;
             material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
             EditorUtility.SetDirty(material);
             return material;
@@ -591,28 +697,6 @@ namespace WhatLightRemains.Editor
             material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
             material.DisableKeyword("_ALPHATEST_ON");
             material.renderQueue = (int)RenderQueue.Transparent + 100;
-            material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
-            EditorUtility.SetDirty(material);
-            return material;
-        }
-
-        private static Material CreateRoomDeleteOutlineMaterial()
-        {
-            Material material = LoadOrCreateMaterial(RoomDeleteOutlineMaterialPath, "Universal Render Pipeline/Unlit");
-            Color deletionRed = new Color(5f, 0.015f, 0.01f, 1f);
-            SetColor(material, "_BaseColor", deletionRed);
-            SetColor(material, "_Color", deletionRed);
-            SetFloat(material, "_Surface", 0f);
-            SetFloat(material, "_Blend", 0f);
-            SetFloat(material, "_Cull", (float)CullMode.Off);
-            SetFloat(material, "_AlphaClip", 0f);
-            SetFloat(material, "_SrcBlend", (float)BlendMode.One);
-            SetFloat(material, "_DstBlend", (float)BlendMode.Zero);
-            SetFloat(material, "_ZWrite", 1f);
-            material.SetOverrideTag("RenderType", "Opaque");
-            material.DisableKeyword("_SURFACE_TYPE_TRANSPARENT");
-            material.DisableKeyword("_ALPHATEST_ON");
-            material.renderQueue = (int)RenderQueue.Geometry + 20;
             material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
             EditorUtility.SetDirty(material);
             return material;
@@ -768,6 +852,10 @@ namespace WhatLightRemains.Editor
 
         private static GameObject CreateCubePrefab(
             Material glass,
+            Material deviceWallGlass,
+            Material deviceWallMetal,
+            Material deviceAnchorAvailable,
+            Material deviceAnchorBlocked,
             Material floor,
             Material strip,
             Material stripHousing,
@@ -816,6 +904,10 @@ namespace WhatLightRemains.Editor
                     eastBoundary.ClosedCollider,
                     southBoundary.ClosedCollider,
                     northBoundary.ClosedCollider);
+                DeviceWall deviceWall = root.AddComponent<DeviceWall>();
+                deviceWall.Configure(room, DeviceWall.DefaultFace, deviceWallGlass, deviceWallMetal,
+                    deviceAnchorAvailable, deviceAnchorBlocked);
+                room.ConfigureDeviceWall(deviceWall);
                 Transform lightingRoot = NewChild(root.transform, "Lighting");
                 CubeRoomLighting lighting = lightingRoot.gameObject.AddComponent<CubeRoomLighting>();
                 Transform housingsRoot = NewChild(lightingRoot, "Strip Housings");
@@ -923,7 +1015,6 @@ namespace WhatLightRemains.Editor
             Material hand,
             Material tool,
             Material roomPreview,
-            Material roomDeleteOutline,
             LayerIds layers)
         {
             GameObject root = new GameObject("Player");
@@ -948,6 +1039,7 @@ namespace WhatLightRemains.Editor
                 PlayerGravityAlignment alignment = root.AddComponent<PlayerGravityAlignment>();
                 PlayerRoomTraversal roomTraversal = root.AddComponent<PlayerRoomTraversal>();
                 FirstPersonMotor motor = root.AddComponent<FirstPersonMotor>();
+                root.AddComponent<PlayerVitals>();
                 PlayerLook look = root.AddComponent<PlayerLook>();
                 RoomCreationController roomCreation = root.AddComponent<RoomCreationController>();
                 RoomDeletionController roomDeletion = root.AddComponent<RoomDeletionController>();
@@ -1010,7 +1102,7 @@ namespace WhatLightRemains.Editor
                 look.FieldOfView = 75f;
                 motor.Configure(mover, input, tracker, alignment, roomTraversal, yaw);
                 roomCreation.Configure(input, tracker, look, mainCamera, roomPreview);
-                roomDeletion.Configure(input, tracker, look, mainCamera, roomDeleteOutline, roomCreation, roomTraversal);
+                roomDeletion.Configure(input, tracker, look, mainCamera, roomCreation, roomTraversal);
                 roomTraversal.Configure(input, tracker, mover, alignment, mainCamera, look, roomCreation, null, roomDeletion);
                 return PrefabUtility.SaveAsPrefabAsset(root, PlayerPrefabPath);
             }
@@ -1020,12 +1112,14 @@ namespace WhatLightRemains.Editor
             }
         }
 
-        private static GameObject CreateHotbarPrefab(Sprite toolIcon)
+        private static GameObject CreateHotbarPrefab(Sprite toolIcon, Font menuFont,
+            Material mapPlayerMarker, LayerIds layers)
         {
             GameObject root = new GameObject(
                 "Hotbar",
                 typeof(HotbarView),
-                typeof(GlassOpacityControl),
+                typeof(PauseMenuController),
+                typeof(WorldMapController),
                 typeof(RoomCreationPromptView));
             try
             {
@@ -1154,83 +1248,17 @@ namespace WhatLightRemains.Editor
                     rotationInstruction,
                     traversalInstruction);
 
-                GameObject glassPanel = CreateUiImage(
-                    "Glass Opacity Panel",
-                    canvasObject.transform,
-                    new Color(0.025f, 0.03f, 0.04f, 0.82f));
-                RectTransform glassPanelRect = glassPanel.GetComponent<RectTransform>();
-                glassPanelRect.anchorMin = Vector2.one;
-                glassPanelRect.anchorMax = Vector2.one;
-                glassPanelRect.pivot = Vector2.one;
-                glassPanelRect.anchoredPosition = new Vector2(-24f, -24f);
-                glassPanelRect.sizeDelta = new Vector2(310f, 76f);
+                GameObject gameplayReticle = CreateGameplayReticle(canvasObject.transform);
+                VitalsHudView vitals = CreateVitalsHud(canvasObject.transform);
+                GameObject[] gameplayHud = { panel, creationInstruction.gameObject, deletionInstruction.gameObject,
+                    rotationInstruction.gameObject, traversalInstruction.gameObject, vitals.gameObject };
 
-                Text opacityLabel = CreateUiText(
-                    "Glass Opacity Label",
-                    glassPanel.transform,
-                    "Glass opacity  3.5%   (Esc, then drag)",
-                    15,
-                    TextAnchor.MiddleLeft);
-                RectTransform opacityLabelRect = opacityLabel.rectTransform;
-                opacityLabelRect.anchorMin = new Vector2(0f, 1f);
-                opacityLabelRect.anchorMax = Vector2.one;
-                opacityLabelRect.offsetMin = new Vector2(14f, -38f);
-                opacityLabelRect.offsetMax = new Vector2(-14f, -8f);
-
-                GameObject sliderObject = new GameObject("Glass Opacity Slider", typeof(RectTransform), typeof(Slider));
-                sliderObject.transform.SetParent(glassPanel.transform, false);
-                RectTransform sliderRect = sliderObject.GetComponent<RectTransform>();
-                sliderRect.anchorMin = new Vector2(0f, 0f);
-                sliderRect.anchorMax = new Vector2(1f, 0f);
-                sliderRect.pivot = new Vector2(0.5f, 0f);
-                sliderRect.offsetMin = new Vector2(14f, 12f);
-                sliderRect.offsetMax = new Vector2(-14f, 32f);
-
-                GameObject sliderBackground = CreateUiImage(
-                    "Background",
-                    sliderObject.transform,
-                    new Color(0.10f, 0.12f, 0.15f, 1f));
-                RectTransform sliderBackgroundRect = sliderBackground.GetComponent<RectTransform>();
-                StretchToParent(sliderBackgroundRect, 0f);
-                sliderBackgroundRect.offsetMin = new Vector2(0f, 7f);
-                sliderBackgroundRect.offsetMax = new Vector2(0f, -7f);
-
-                GameObject fillArea = new GameObject("Fill Area", typeof(RectTransform));
-                fillArea.transform.SetParent(sliderObject.transform, false);
-                RectTransform fillAreaRect = fillArea.GetComponent<RectTransform>();
-                StretchToParent(fillAreaRect, 0f);
-                fillAreaRect.offsetMin = new Vector2(2f, 8f);
-                fillAreaRect.offsetMax = new Vector2(-8f, -8f);
-                Image sliderFill = CreateUiImage(
-                    "Fill",
-                    fillArea.transform,
-                    new Color(0.30f, 0.72f, 1f, 1f)).GetComponent<Image>();
-                StretchToParent(sliderFill.rectTransform, 0f);
-
-                GameObject handleArea = new GameObject("Handle Slide Area", typeof(RectTransform));
-                handleArea.transform.SetParent(sliderObject.transform, false);
-                RectTransform handleAreaRect = handleArea.GetComponent<RectTransform>();
-                StretchToParent(handleAreaRect, 0f);
-                handleAreaRect.offsetMin = new Vector2(7f, 0f);
-                handleAreaRect.offsetMax = new Vector2(-7f, 0f);
-                Image sliderHandle = CreateUiImage(
-                    "Handle",
-                    handleArea.transform,
-                    new Color(0.84f, 0.94f, 1f, 1f)).GetComponent<Image>();
-                sliderHandle.rectTransform.sizeDelta = new Vector2(14f, 20f);
-
-                Slider opacitySlider = sliderObject.GetComponent<Slider>();
-                opacitySlider.transition = Selectable.Transition.None;
-                opacitySlider.fillRect = sliderFill.rectTransform;
-                opacitySlider.handleRect = sliderHandle.rectTransform;
-                opacitySlider.targetGraphic = sliderHandle;
-                opacitySlider.direction = Slider.Direction.LeftToRight;
-                opacitySlider.minValue = 0f;
-                opacitySlider.maxValue = 1f;
-                opacitySlider.value = 0.035f;
-
-                GlassOpacityControl opacityControl = root.GetComponent<GlassOpacityControl>();
-                opacityControl.Configure(opacitySlider, opacityLabel, 0f, 1f, 0.035f);
+                CreateWorldMap(root.GetComponent<WorldMapController>(), root.transform, canvasObject.transform,
+                    menuFont, mapPlayerMarker, layers,
+                    gameplayHud, gameplayReticle);
+                CreatePauseMenu(root.GetComponent<PauseMenuController>(), canvasObject.transform, menuFont);
+                root.GetComponent<PauseMenuController>().ConfigureGameplayHud(
+                    gameplayHud.Concat(new[] { gameplayReticle }).ToArray());
 
                 HotbarView hotbar = root.GetComponent<HotbarView>();
                 hotbar.ToolIcon = toolIcon;
@@ -1242,6 +1270,264 @@ namespace WhatLightRemains.Editor
             {
                 Object.DestroyImmediate(root);
             }
+        }
+
+        private static void CreateWorldMap(WorldMapController controller, Transform hotbarRoot, Transform canvas,
+            Font font, Material markerMaterial, LayerIds layers, GameObject[] gameplayHudElements,
+            GameObject gameplayReticle)
+        {
+            GameObject worldRoot = new GameObject("World Map View");
+            worldRoot.transform.SetParent(hotbarRoot, false);
+
+            GameObject cameraObject = new GameObject("World Map Camera", typeof(Camera), typeof(UniversalAdditionalCameraData));
+            cameraObject.transform.SetParent(worldRoot.transform, false);
+            Camera camera = cameraObject.GetComponent<Camera>();
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = Color.black;
+            camera.fieldOfView = 55f;
+            camera.nearClipPlane = 0.05f;
+            camera.farClipPlane = 500f;
+            camera.depth = 40f;
+            camera.allowHDR = true;
+            camera.allowMSAA = true;
+            camera.cullingMask = ~((1 << layers.Player) | (1 << layers.ViewModel) | (1 << layers.RoomVolume));
+            UniversalAdditionalCameraData cameraData = cameraObject.GetComponent<UniversalAdditionalCameraData>();
+            cameraData.renderType = CameraRenderType.Base;
+            cameraData.renderPostProcessing = false;
+
+            Transform marker = new GameObject("Map Player Marker").transform;
+            marker.SetParent(worldRoot.transform, false);
+            Renderer markerCore = CreateCube("Marker Core", marker, new Vector3(0f, 0f, 0.20f),
+                new Vector3(0.24f, 0.10f, 0.72f), markerMaterial, false, false);
+            Renderer markerLeft = CreateCube("Marker Arrow Left", marker, new Vector3(-0.22f, 0f, 0.67f),
+                new Vector3(0.15f, 0.10f, 0.58f), markerMaterial, false, false);
+            markerLeft.transform.localRotation = Quaternion.Euler(0f, -42f, 0f);
+            Renderer markerRight = CreateCube("Marker Arrow Right", marker, new Vector3(0.22f, 0f, 0.67f),
+                new Vector3(0.15f, 0.10f, 0.58f), markerMaterial, false, false);
+            markerRight.transform.localRotation = Quaternion.Euler(0f, 42f, 0f);
+            markerCore.gameObject.layer = 0;
+            markerLeft.gameObject.layer = 0;
+            markerRight.gameObject.layer = 0;
+
+            GameObject overlay = new GameObject("World Map Overlay", typeof(RectTransform));
+            overlay.transform.SetParent(canvas, false);
+            StretchToParent(overlay.GetComponent<RectTransform>(), 0f);
+
+            GameObject titlePanel = CreateUiImage("Map Title Panel", overlay.transform, new Color(0.01f, 0.02f, 0.025f, 0.78f));
+            RectTransform titlePanelRect = titlePanel.GetComponent<RectTransform>();
+            titlePanelRect.anchorMin = new Vector2(0.5f, 1f);
+            titlePanelRect.anchorMax = new Vector2(0.5f, 1f);
+            titlePanelRect.pivot = new Vector2(0.5f, 1f);
+            titlePanelRect.anchoredPosition = new Vector2(0f, -24f);
+            titlePanelRect.sizeDelta = new Vector2(360f, 54f);
+            Text title = CreateUiText("Map Title", titlePanel.transform, "WORLD MAP", 24, TextAnchor.MiddleCenter);
+            title.font = font;
+            title.color = new Color(0.86f, 0.95f, 1f, 1f);
+            StretchToParent(title.rectTransform, 0f);
+
+            GameObject reticle = CreateUiImage("Map Reticle", overlay.transform,
+                new Color(0.72f, 0.95f, 1f, 0.94f));
+            RectTransform reticleRect = reticle.GetComponent<RectTransform>();
+            reticleRect.anchorMin = new Vector2(0.5f, 0.5f);
+            reticleRect.anchorMax = new Vector2(0.5f, 0.5f);
+            reticleRect.pivot = new Vector2(0.5f, 0.5f);
+            reticleRect.anchoredPosition = Vector2.zero;
+            reticleRect.sizeDelta = new Vector2(10f, 10f);
+            Image reticleImage = reticle.GetComponent<Image>();
+            reticleImage.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Knob.psd");
+            reticleImage.preserveAspect = true;
+            reticleImage.raycastTarget = false;
+            Shadow reticleShadow = reticle.AddComponent<Shadow>();
+            reticleShadow.effectColor = new Color(0f, 0f, 0f, 0.95f);
+            reticleShadow.effectDistance = new Vector2(1.5f, -1.5f);
+            reticleShadow.useGraphicAlpha = true;
+
+            GameObject helpPanel = CreateUiImage("Map Controls Panel", overlay.transform, new Color(0.01f, 0.02f, 0.025f, 0.82f));
+            RectTransform helpPanelRect = helpPanel.GetComponent<RectTransform>();
+            helpPanelRect.anchorMin = new Vector2(0.5f, 0f);
+            helpPanelRect.anchorMax = new Vector2(0.5f, 0f);
+            helpPanelRect.pivot = new Vector2(0.5f, 0f);
+            helpPanelRect.anchoredPosition = new Vector2(0f, 24f);
+            helpPanelRect.sizeDelta = new Vector2(1600f, 48f);
+            Text help = CreateUiText("Map Controls", helpPanel.transform,
+                "LMB: Orbit     MMB: Move Map     RMB: Level Map     Wheel: Zoom     C: Center Player     R: Reset Map     Esc or M: Return",
+                15, TextAnchor.MiddleCenter);
+            help.font = font;
+            help.color = new Color(0.80f, 0.90f, 0.96f, 1f);
+            StretchToParent(help.rectTransform, 0f);
+
+            controller.Configure(worldRoot, overlay, camera, marker, gameplayHudElements, gameplayReticle);
+        }
+
+        private static VitalsHudView CreateVitalsHud(Transform canvas)
+        {
+            GameObject group = new GameObject("Player Vitals", typeof(RectTransform), typeof(VitalsHudView));
+            group.transform.SetParent(canvas, false);
+            RectTransform rect = group.GetComponent<RectTransform>();
+            rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0f, 1f);
+            rect.anchoredPosition = new Vector2(28f, -24f);
+            rect.sizeDelta = new Vector2(72f, 244f);
+            VitalGaugeView health = CreateVitalGauge(group.transform, "Health", 0f,
+                new Color(0.78f, 0.34f, 0.37f), VitalIconGraphic.Symbol.Heart);
+            VitalGaugeView hunger = CreateVitalGauge(group.transform, "Hunger", -86f,
+                new Color(1f, 0.69f, 0.25f), VitalIconGraphic.Symbol.Food);
+            VitalGaugeView oxygen = CreateVitalGauge(group.transform, "Oxygen", -172f,
+                new Color(0.31f, 0.79f, 0.91f), VitalIconGraphic.Symbol.Air);
+            VitalsHudView view = group.GetComponent<VitalsHudView>();
+            view.ConfigureGauges(health, hunger, oxygen);
+            return view;
+        }
+
+        private static VitalGaugeView CreateVitalGauge(Transform parent, string title, float y,
+            Color accent, VitalIconGraphic.Symbol symbol)
+        {
+            GameObject row = new GameObject(title + " Gauge", typeof(RectTransform), typeof(VitalGaugeView));
+            row.transform.SetParent(parent, false);
+            RectTransform rowRect = row.GetComponent<RectTransform>();
+            rowRect.anchorMin = rowRect.anchorMax = rowRect.pivot = new Vector2(0f, 1f);
+            rowRect.anchoredPosition = new Vector2(0f, y);
+            rowRect.sizeDelta = new Vector2(72f, 72f);
+
+            Sprite disk = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Knob.psd");
+            CreateGaugeDisk("Empty Track", row.transform, disk, new Color(0.16f, 0.19f, 0.20f, 0.95f), 72f);
+            Image fill = CreateGaugeDisk("Radial Fill", row.transform, disk, accent, 72f);
+            fill.type = Image.Type.Filled;
+            fill.fillMethod = Image.FillMethod.Radial360;
+            fill.fillOrigin = (int)Image.Origin360.Top;
+            fill.fillClockwise = true;
+            fill.fillAmount = 1f;
+            // An opaque dark center masks both disks into a 7px ring and keeps its icon legible.
+            CreateGaugeDisk("Icon Backing", row.transform, disk, new Color(0.015f, 0.022f, 0.025f, 1f), 56f);
+            GameObject icon = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(VitalIconGraphic));
+            icon.transform.SetParent(row.transform, false);
+            SetGaugeRect(icon.GetComponent<RectTransform>(), new Vector2(36f, -36f), new Vector2(29f, 29f));
+            VitalIconGraphic graphic = icon.GetComponent<VitalIconGraphic>();
+            graphic.Icon = symbol;
+            graphic.color = new Color(0.96f, 0.97f, 0.97f, 1f);
+            graphic.raycastTarget = false;
+
+            VitalGaugeView gauge = row.GetComponent<VitalGaugeView>();
+            gauge.Configure(fill);
+            return gauge;
+        }
+
+        private static Image CreateGaugeDisk(string name, Transform parent, Sprite sprite, Color color, float size)
+        {
+            Image image = CreateUiImage(name, parent, color).GetComponent<Image>();
+            image.sprite = sprite;
+            image.preserveAspect = true;
+            SetGaugeRect(image.rectTransform, new Vector2(36f, -36f), new Vector2(size, size));
+            return image;
+        }
+
+        private static void SetGaugeRect(RectTransform rect, Vector2 position, Vector2 size)
+        {
+            rect.anchorMin = rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = position;
+            rect.sizeDelta = size;
+        }
+
+        private static GameObject CreateGameplayReticle(Transform canvas)
+        {
+            GameObject reticle = new GameObject("Gameplay Reticle", typeof(RectTransform));
+            reticle.transform.SetParent(canvas, false);
+            RectTransform rect = reticle.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = new Vector2(42f, 42f);
+            Color color = new Color(0.90f, 0.96f, 1f, 0.86f);
+            CreateReticleBar("Horizontal", reticle.transform, new Vector2(28f, 3f), color);
+            CreateReticleBar("Vertical", reticle.transform, new Vector2(3f, 28f), color);
+            return reticle;
+        }
+
+        private static void CreateReticleBar(string label, Transform parent, Vector2 size, Color color)
+        {
+            GameObject tick = CreateUiImage(label, parent, color);
+            RectTransform rect = tick.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = size;
+            Image image = tick.GetComponent<Image>();
+            image.raycastTarget = false;
+            Shadow shadow = tick.AddComponent<Shadow>();
+            shadow.effectColor = new Color(0f, 0f, 0f, 0.92f);
+            shadow.effectDistance = new Vector2(1.5f, -1.5f);
+            shadow.useGraphicAlpha = true;
+        }
+
+        private static void CreatePauseMenu(PauseMenuController controller, Transform canvas, Font font)
+        {
+            GameObject overlay = CreateUiImage("Pause Menu", canvas, new Color(0f, 0f, 0f, 0.90f));
+            RectTransform overlayRect = overlay.GetComponent<RectTransform>();
+            StretchToParent(overlayRect, 0f);
+
+            Text title = CreateUiText("Pause Title", overlay.transform, "PAUSED", 42, TextAnchor.MiddleCenter);
+            title.font = font;
+            title.color = new Color(0.96f, 0.94f, 0.88f, 1f);
+            RectTransform titleRect = title.rectTransform;
+            titleRect.anchorMin = new Vector2(0.5f, 0.5f);
+            titleRect.anchorMax = new Vector2(0.5f, 0.5f);
+            titleRect.pivot = new Vector2(0.5f, 0.5f);
+            titleRect.anchoredPosition = new Vector2(0f, 165f);
+            titleRect.sizeDelta = new Vector2(520f, 70f);
+
+            GameObject buttonColumn = new GameObject("Pause Buttons", typeof(RectTransform), typeof(VerticalLayoutGroup));
+            buttonColumn.transform.SetParent(overlay.transform, false);
+            RectTransform columnRect = buttonColumn.GetComponent<RectTransform>();
+            columnRect.anchorMin = new Vector2(0.5f, 0.5f);
+            columnRect.anchorMax = new Vector2(0.5f, 0.5f);
+            columnRect.pivot = new Vector2(0.5f, 0.5f);
+            columnRect.anchoredPosition = new Vector2(0f, -20f);
+            columnRect.sizeDelta = new Vector2(440f, 300f);
+            VerticalLayoutGroup layout = buttonColumn.GetComponent<VerticalLayoutGroup>();
+            layout.spacing = 10f;
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.childControlWidth = false;
+            layout.childControlHeight = false;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = false;
+
+            Button resume = CreatePauseButton("Resume Game", buttonColumn.transform, font);
+            Button reset = CreatePauseButton("Reset World", buttonColumn.transform, font);
+            Button mainMenu = CreatePauseButton("Main Menu", buttonColumn.transform, font);
+            Button quit = CreatePauseButton("Quit to Desktop", buttonColumn.transform, font);
+
+            GameObject eventSystem = new GameObject("Pause EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
+            eventSystem.transform.SetParent(controller.transform, false);
+            controller.Configure(overlay, resume, reset, mainMenu, quit,
+                Path.GetFileNameWithoutExtension(FoundationScenePath),
+                Path.GetFileNameWithoutExtension(MainMenuScenePath));
+        }
+
+        private static Button CreatePauseButton(string label, Transform parent, Font font)
+        {
+            GameObject item = new GameObject(label + " Button", typeof(RectTransform), typeof(CanvasRenderer),
+                typeof(Text), typeof(Button), typeof(MainMenuTextHover), typeof(LayoutElement));
+            item.transform.SetParent(parent, false);
+            RectTransform rect = item.GetComponent<RectTransform>();
+            rect.sizeDelta = new Vector2(420f, 58f);
+            LayoutElement element = item.GetComponent<LayoutElement>();
+            element.preferredWidth = 420f;
+            element.preferredHeight = 58f;
+            Text text = item.GetComponent<Text>();
+            text.font = font;
+            text.fontSize = 28;
+            text.alignment = TextAnchor.MiddleCenter;
+            text.text = label;
+            text.color = new Color(0.88f, 0.86f, 0.80f, 0.86f);
+            Button button = item.GetComponent<Button>();
+            button.targetGraphic = text;
+            button.transition = Selectable.Transition.None;
+            item.GetComponent<MainMenuTextHover>().Configure(text,
+                new Color(0.88f, 0.86f, 0.80f, 0.86f),
+                new Color(1f, 0.98f, 0.92f, 1f), 1.025f, 0.12f);
+            return button;
         }
 
         private static void CreateMainMenuScene(Texture2D menuArtwork, Font menuFont)
@@ -1367,6 +1653,7 @@ namespace WhatLightRemains.Editor
             if (yaw != null) yaw.localRotation = Quaternion.Euler(0f, 45f, 0f);
             tracker.Initialize(cluster.PrimaryRoom);
             GameObject hotbar = (GameObject)PrefabUtility.InstantiatePrefab(hotbarPrefab);
+            ConfigureSessionVitals(tracker, hotbar);
             tracker.GetComponent<RoomCreationController>().Initialize(
                 cluster,
                 hotbar.GetComponent<RoomCreationPromptView>());
@@ -1406,7 +1693,8 @@ namespace WhatLightRemains.Editor
             Transform validationYaw = tracker.transform.Find("Yaw Pivot");
             if (validationYaw != null) validationYaw.localRotation = Quaternion.Euler(0f, 90f, 0f);
             tracker.Initialize(sourceRoom);
-            PrefabUtility.InstantiatePrefab(hotbarPrefab);
+            GameObject hotbar = (GameObject)PrefabUtility.InstantiatePrefab(hotbarPrefab);
+            ConfigureSessionVitals(tracker, hotbar);
 
             // The east-south supporting light is directly behind this small blocker.
             // The larger receiver leaves an unobstructed region beside the resulting shadow,
@@ -1429,6 +1717,15 @@ namespace WhatLightRemains.Editor
             RenderSettings.defaultReflectionMode = DefaultReflectionMode.Custom;
             RenderSettings.customReflectionTexture = null;
             RenderSettings.reflectionIntensity = 0f;
+        }
+
+        private static void ConfigureSessionVitals(PlayerRoomTracker player, GameObject hotbar)
+        {
+            // Scene lifetime is the session boundary for direct play, New Game and Reset World.
+            GameObject session = new GameObject("World Session");
+            WorldOxygenReserve oxygen = session.AddComponent<WorldOxygenReserve>();
+            hotbar.GetComponentInChildren<VitalsHudView>(true).Configure(player.GetComponent<PlayerVitals>(), oxygen);
+            PrefabUtility.RecordPrefabInstancePropertyModifications(hotbar.GetComponentInChildren<VitalsHudView>(true));
         }
 
         private static void ConfigureBuildScenes()
@@ -2049,8 +2346,10 @@ namespace WhatLightRemains.Editor
                 { ""name"": ""Move"", ""type"": ""Value"", ""id"": ""fbaacdfa-4418-445b-8428-0dfa08ec6218"", ""expectedControlType"": ""Vector2"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": true },
                 { ""name"": ""Look"", ""type"": ""Value"", ""id"": ""e2f84b39-d0cb-42fd-8d65-5d5c1b541c5c"", ""expectedControlType"": ""Vector2"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": true },
                 { ""name"": ""Jump"", ""type"": ""Button"", ""id"": ""1fd455b7-9d8c-477b-9ea8-4584bd57f3fa"", ""expectedControlType"": ""Button"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": false },
-                { ""name"": ""ReleaseCursor"", ""type"": ""Button"", ""id"": ""b75f8437-030b-4f69-a654-0ef177ac9fb1"", ""expectedControlType"": ""Button"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": false },
-                { ""name"": ""CaptureCursor"", ""type"": ""Button"", ""id"": ""f3525105-cb20-4cd8-bf43-ef95eb8ee037"", ""expectedControlType"": ""Button"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": false },
+                { ""name"": ""Pause"", ""type"": ""Button"", ""id"": ""b75f8437-030b-4f69-a654-0ef177ac9fb1"", ""expectedControlType"": ""Button"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": false },
+                { ""name"": ""ToggleMap"", ""type"": ""Button"", ""id"": ""b06c4dfa-1f0c-4d47-93d5-5f410b2e2a0c"", ""expectedControlType"": ""Button"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": false },
+                { ""name"": ""ResetMap"", ""type"": ""Button"", ""id"": ""a2613b61-e003-4a86-90c9-92cc4a0cc004"", ""expectedControlType"": ""Button"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": false },
+                { ""name"": ""CenterMap"", ""type"": ""Button"", ""id"": ""e1d74018-698b-48cd-94b4-d667f4d61c74"", ""expectedControlType"": ""Button"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": false },
                 { ""name"": ""ToggleCreate"", ""type"": ""Button"", ""id"": ""fe1131a6-5d0b-4c84-b97b-110f5f2a77ac"", ""expectedControlType"": ""Button"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": false },
                 { ""name"": ""PlaceRoom"", ""type"": ""Button"", ""id"": ""48ba252b-3562-44d1-936c-88f433ab2d51"", ""expectedControlType"": ""Button"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": false },
                 { ""name"": ""Sprint"", ""type"": ""Button"", ""id"": ""d1f3b5dc-d57c-48d6-a369-6545085ec79e"", ""expectedControlType"": ""Button"", ""processors"": """", ""interactions"": """", ""initialStateCheck"": true },
@@ -2069,8 +2368,10 @@ namespace WhatLightRemains.Editor
                 { ""name"": ""right"", ""id"": ""5d44915f-fbe0-4f0e-bfed-1f68636a448c"", ""path"": ""<Keyboard>/d"", ""interactions"": """", ""processors"": """", ""groups"": """", ""action"": ""Move"", ""isComposite"": false, ""isPartOfComposite"": true },
                 { ""name"": """", ""id"": ""cda9e182-3d11-41a6-a562-d080ce5c6664"", ""path"": ""<Mouse>/delta"", ""interactions"": """", ""processors"": """", ""groups"": """", ""action"": ""Look"", ""isComposite"": false, ""isPartOfComposite"": false },
                 { ""name"": """", ""id"": ""0a60c9ac-b0db-4c52-8d68-d80e48979076"", ""path"": ""<Keyboard>/space"", ""interactions"": """", ""processors"": """", ""groups"": """", ""action"": ""Jump"", ""isComposite"": false, ""isPartOfComposite"": false },
-                { ""name"": """", ""id"": ""27d14848-d21b-4275-9b98-05ca76289f74"", ""path"": ""<Keyboard>/escape"", ""interactions"": """", ""processors"": """", ""groups"": """", ""action"": ""ReleaseCursor"", ""isComposite"": false, ""isPartOfComposite"": false },
-                { ""name"": """", ""id"": ""7eb4af7e-76e6-4b7a-bd29-b6fa98d1b3be"", ""path"": ""<Mouse>/leftButton"", ""interactions"": """", ""processors"": """", ""groups"": """", ""action"": ""CaptureCursor"", ""isComposite"": false, ""isPartOfComposite"": false },
+                { ""name"": """", ""id"": ""27d14848-d21b-4275-9b98-05ca76289f74"", ""path"": ""<Keyboard>/escape"", ""interactions"": ""Press"", ""processors"": """", ""groups"": """", ""action"": ""Pause"", ""isComposite"": false, ""isPartOfComposite"": false },
+                { ""name"": """", ""id"": ""57949ef0-a716-4d48-a012-e638d37e3be2"", ""path"": ""<Keyboard>/m"", ""interactions"": ""Press"", ""processors"": """", ""groups"": """", ""action"": ""ToggleMap"", ""isComposite"": false, ""isPartOfComposite"": false },
+                { ""name"": """", ""id"": ""46a10d96-32fc-4329-b0c4-7c43aa47b3ac"", ""path"": ""<Keyboard>/r"", ""interactions"": ""Press"", ""processors"": """", ""groups"": """", ""action"": ""ResetMap"", ""isComposite"": false, ""isPartOfComposite"": false },
+                { ""name"": """", ""id"": ""b134b623-9cbd-407d-8b63-c4190d9d490e"", ""path"": ""<Keyboard>/c"", ""interactions"": ""Press"", ""processors"": """", ""groups"": """", ""action"": ""CenterMap"", ""isComposite"": false, ""isPartOfComposite"": false },
                 { ""name"": """", ""id"": ""6328840f-0870-4f0f-9024-1e0a246302a4"", ""path"": ""<Keyboard>/c"", ""interactions"": ""Press"", ""processors"": """", ""groups"": """", ""action"": ""ToggleCreate"", ""isComposite"": false, ""isPartOfComposite"": false },
                 { ""name"": """", ""id"": ""0d660884-6f90-4f75-8d97-dd5df83e3faa"", ""path"": ""<Mouse>/leftButton"", ""interactions"": ""Press"", ""processors"": """", ""groups"": """", ""action"": ""PlaceRoom"", ""isComposite"": false, ""isPartOfComposite"": false },
                 { ""name"": """", ""id"": ""0ce9cf3e-ffb1-42e1-8960-fd83f247f687"", ""path"": ""<Keyboard>/leftShift"", ""interactions"": """", ""processors"": """", ""groups"": """", ""action"": ""Sprint"", ""isComposite"": false, ""isPartOfComposite"": false },

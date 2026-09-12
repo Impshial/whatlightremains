@@ -653,6 +653,7 @@ GameObject:
   - component: {fileID: 1429779551892615791}
   - component: {fileID: 4887788067124057916}
   - component: {fileID: 8757354384928270682}
+  - component: {fileID: 819239791185984816}
   - component: {fileID: 7499881474968383807}
   - component: {fileID: 512684838424836928}
   - component: {fileID: 5429047102331691301}
@@ -851,6 +852,22 @@ MonoBehaviour:
   groundMask:
     serializedVersion: 2
     m_Bits: 4294967295
+--- !u!114 &819239791185984816
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8191574034244779842}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ad9e8cdbd0b54a379809425cf8e3bee7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: WhatLightRemains.Runtime::WhatLightRemains.Runtime.PlayerVitals
+  startingHealth: 100
+  maximumHealth: 100
+  startingHunger: 100
+  maximumHunger: 100
 --- !u!114 &7499881474968383807
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -911,6 +928,5 @@ MonoBehaviour:
   gameplayCamera: {fileID: 3264905031190513779}
   roomLayout: {fileID: 0}
   promptView: {fileID: 0}
-  outlineMaterial: {fileID: 2100000, guid: 53652553050b7924592e1b169048d347, type: 2}
   creationController: {fileID: 512684838424836928}
   roomTraversal: {fileID: 4887788067124057916}

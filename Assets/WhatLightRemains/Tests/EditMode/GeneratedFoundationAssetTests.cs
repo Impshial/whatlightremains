@@ -23,12 +23,13 @@ namespace WhatLightRemains.Tests
         private const string HotbarPrefabPath = "Assets/WhatLightRemains/Generated/Prefabs/Hotbar.prefab";
         private const string InputActionsPath = "Assets/WhatLightRemains/Generated/Input/WhatLightRemainsInput.inputactions";
         private const string GlassMaterialPath = "Assets/WhatLightRemains/Generated/Materials/ClearGlass.mat";
+        private const string DeviceWallGlassMaterialPath = "Assets/WhatLightRemains/Generated/Materials/DeviceWallGlass.mat";
+        private const string MapPlayerMarkerMaterialPath = "Assets/WhatLightRemains/Generated/Materials/MapPlayerMarker.mat";
         private const string FloorMaterialPath = "Assets/WhatLightRemains/Generated/Materials/Floor.mat";
         private const string StripMaterialPath = "Assets/WhatLightRemains/Generated/Materials/LightStrip.mat";
         private const string StripHousingMaterialPath = "Assets/WhatLightRemains/Generated/Materials/LightStripHousing.mat";
         private const string BaseRailMaterialPath = "Assets/WhatLightRemains/Generated/Materials/BaseRail.mat";
         private const string RoomPreviewMaterialPath = "Assets/WhatLightRemains/Generated/Materials/RoomPreview.mat";
-        private const string RoomDeleteOutlineMaterialPath = "Assets/WhatLightRemains/Generated/Materials/RoomDeleteOutline.mat";
         private const string MenuFontPath = "Assets/WhatLightRemains/Art/Fonts/Raleway-Light.otf";
         private const string FloorBaseColorPath = "Assets/WhatLightRemains/Art/Textures/Floor/Floor_BaseColor.png";
         private const string FloorNormalPath = "Assets/WhatLightRemains/Art/Textures/Floor/Floor_Normal.png";
@@ -72,6 +73,13 @@ namespace WhatLightRemains.Tests
                 AssertConfiguredGlassRenderers(instance);
                 AssertConfiguredWallBoundaryColliders(instance, rooms[0]);
                 AssertConfiguredCeilingBoundary(instance, rooms[0]);
+                DeviceWall deviceWall = rooms[0].DeviceWall;
+                Assert.That(deviceWall, Is.Not.Null);
+                Assert.That(deviceWall.Face, Is.EqualTo(CubeRoomWall.West));
+                Assert.That(deviceWall.Anchors, Has.Length.EqualTo(16));
+                Assert.That(deviceWall.HardwareRoot.GetComponentsInChildren<Collider>(true), Is.Empty);
+                Assert.That(deviceWall.OverlayRoot, Is.Not.Null);
+                Assert.That(deviceWall.OverlayRoot.gameObject.activeSelf, Is.False);
 
                 Assert.That(instance.GetComponentsInChildren<Camera>(true), Is.Empty, "The cube prefab must not own a camera.");
                 Assert.That(instance.GetComponentsInChildren<Canvas>(true), Is.Empty, "The cube prefab must not own HUD UI.");
@@ -143,11 +151,52 @@ namespace WhatLightRemains.Tests
             Assert.That(hotbarView, Is.Not.Null);
             Assert.That(hotbarView.SlotCount, Is.EqualTo(8));
             Assert.That(hotbarView.SelectedIndex, Is.EqualTo(0));
-            GlassOpacityControl opacityControl = hotbar.GetComponentInChildren<GlassOpacityControl>(true);
-            Assert.That(opacityControl, Is.Not.Null);
-            Assert.That(opacityControl.MinimumOpacity, Is.EqualTo(0f).Within(0.0001f));
-            Assert.That(opacityControl.MaximumOpacity, Is.EqualTo(1f).Within(0.0001f));
-            Assert.That(opacityControl.Opacity, Is.EqualTo(0.035f).Within(0.0001f));
+            Assert.That(hotbar.GetComponentInChildren<Slider>(true), Is.Null,
+                "Glass opacity is authored and must not expose a gameplay slider.");
+            PauseMenuController pause = hotbar.GetComponent<PauseMenuController>();
+            Assert.That(pause, Is.Not.Null);
+            Assert.That(pause.MenuRoot, Is.Not.Null);
+            Assert.That(pause.MenuRoot.activeSelf, Is.False);
+            Assert.That(pause.MenuRoot.GetComponentsInChildren<Text>(true).Select(label => label.text),
+                Does.Contain("Resume Game").And.Contain("Reset World").And.Contain("Main Menu").And.Contain("Quit to Desktop"));
+            WorldMapController map = hotbar.GetComponent<WorldMapController>();
+            Assert.That(map, Is.Not.Null);
+            Assert.That(map.MapRoot, Is.Not.Null);
+            Assert.That(map.MapRoot.activeSelf, Is.False);
+            Assert.That(map.MapOverlayRoot, Is.Not.Null);
+            Assert.That(map.MapOverlayRoot.activeSelf, Is.False);
+            Assert.That(map.MapCamera, Is.Not.Null);
+            Assert.That(map.MapCamera.enabled, Is.False);
+            Assert.That(map.MapCamera.GetComponent<AudioListener>(), Is.Null);
+            Assert.That(map.PlayerMarker, Is.Not.Null);
+            SerializedObject mapData = new SerializedObject(map);
+            Assert.That(mapData.FindProperty("initialPlayerDistance").floatValue, Is.EqualTo(20f).Within(0.001f));
+            Assert.That(mapData.FindProperty("centerTransitionDuration").floatValue,
+                Is.EqualTo(0.18f).Within(0.001f));
+            string mapHelp = map.MapOverlayRoot.GetComponentsInChildren<Text>(true)
+                .Select(label => label.text).Single(text => text.Contains("R: Reset Map"));
+            Assert.That(mapHelp, Does.Contain("LMB: Orbit"));
+            Assert.That(mapHelp, Does.Contain("MMB: Move Map"));
+            Assert.That(mapHelp, Does.Contain("RMB: Level Map"));
+            Assert.That(mapHelp, Does.Contain("C: Center Player"));
+            Assert.That(mapHelp, Does.Not.Contain("L: Level Map"));
+            Transform mapReticle = map.MapOverlayRoot.transform.Find("Map Reticle");
+            Assert.That(mapReticle, Is.Not.Null);
+            Assert.That((mapReticle as RectTransform).anchoredPosition, Is.EqualTo(Vector2.zero));
+            Assert.That((mapReticle as RectTransform).sizeDelta, Is.EqualTo(new Vector2(10f, 10f)));
+            Image mapReticleImage = mapReticle.GetComponent<Image>();
+            Assert.That(mapReticleImage, Is.Not.Null);
+            Assert.That(mapReticleImage.sprite, Is.Not.Null);
+            Assert.That(mapReticleImage.raycastTarget, Is.False);
+            Assert.That(mapReticle.GetComponent<Shadow>(), Is.Not.Null);
+            Transform gameplayReticle = hotbar.transform.Find("Canvas/Gameplay Reticle");
+            Assert.That(gameplayReticle, Is.Not.Null);
+            Assert.That((gameplayReticle as RectTransform).sizeDelta, Is.EqualTo(new Vector2(42f, 42f)));
+            Image[] gameplayReticleBars = gameplayReticle.GetComponentsInChildren<Image>(true);
+            Assert.That(gameplayReticleBars, Has.Length.EqualTo(2));
+            Assert.That(gameplayReticleBars.All(bar => !bar.raycastTarget), Is.True);
+            Assert.That(gameplayReticleBars.Select(bar => bar.rectTransform.sizeDelta),
+                Is.EquivalentTo(new[] { new Vector2(28f, 3f), new Vector2(3f, 28f) }));
             RoomCreationPromptView creationPrompt = hotbar.GetComponentInChildren<RoomCreationPromptView>(true);
             Assert.That(creationPrompt, Is.Not.Null);
             Assert.That(creationPrompt.CurrentText, Is.EqualTo(RoomCreationPromptView.NormalText));
@@ -163,7 +212,6 @@ namespace WhatLightRemains.Tests
             Assert.That(creationPrompt.TraversalLabel, Is.Not.Null);
             Assert.That(creationPrompt.TraversalLabel.text, Is.EqualTo(RoomCreationPromptView.TraverseText));
             Assert.That(creationPrompt.TraversalLabel.gameObject.activeSelf, Is.False);
-            Assert.That(hotbar.GetComponentsInChildren<Slider>(true), Has.Length.EqualTo(1));
             Assert.That(hotbar.transform.localScale, Is.EqualTo(Vector3.one));
             Assert.That(hotbar.GetComponentInChildren<Canvas>(true).renderMode, Is.EqualTo(RenderMode.ScreenSpaceOverlay));
             Assert.That(hotbar.GetComponentInChildren<CubeRoom>(true), Is.Null);
@@ -236,8 +284,14 @@ namespace WhatLightRemains.Tests
             Assert.That(move.bindings.Select(binding => binding.path), Does.Contain("<Keyboard>/d"));
             Assert.That(actions.FindAction("Player/Look", true).bindings.Select(binding => binding.path), Does.Contain("<Mouse>/delta"));
             Assert.That(actions.FindAction("Player/Jump", true).bindings.Select(binding => binding.path), Does.Contain("<Keyboard>/space"));
-            Assert.That(actions.FindAction("Player/ReleaseCursor", true).bindings.Select(binding => binding.path), Does.Contain("<Keyboard>/escape"));
-            Assert.That(actions.FindAction("Player/CaptureCursor", true).bindings.Select(binding => binding.path), Does.Contain("<Mouse>/leftButton"));
+            Assert.That(actions.FindAction("Player/Pause", true).bindings.Select(binding => binding.path), Does.Contain("<Keyboard>/escape"));
+            Assert.That(actions.FindAction("Player/ToggleMap", true).bindings.Select(binding => binding.path), Does.Contain("<Keyboard>/m"));
+            Assert.That(actions.FindAction("Player/ResetMap", true).bindings.Select(binding => binding.path), Does.Contain("<Keyboard>/r"));
+            Assert.That(actions.FindAction("Player/LevelMap", false), Is.Null,
+                "Map leveling is a direct RMB map interaction and must not retain the old L binding.");
+            Assert.That(actions.FindAction("Player/CenterMap", true).bindings.Select(binding => binding.path), Does.Contain("<Keyboard>/c"));
+            Assert.That(actions.FindAction("Player/ReleaseCursor", false), Is.Null);
+            Assert.That(actions.FindAction("Player/CaptureCursor", false), Is.Null);
             Assert.That(actions.FindAction("Player/ToggleCreate", true).bindings.Select(binding => binding.path), Does.Contain("<Keyboard>/c"));
             Assert.That(actions.FindAction("Player/PlaceRoom", true).bindings.Select(binding => binding.path), Does.Contain("<Mouse>/leftButton"));
             Assert.That(actions.FindAction("Player/Sprint", true).bindings.Select(binding => binding.path), Does.Contain("<Keyboard>/leftShift"));
@@ -258,9 +312,13 @@ namespace WhatLightRemains.Tests
             Assert.That(preview.GetFloat("_DstBlend"), Is.EqualTo((float)BlendMode.OneMinusSrcAlpha));
             Assert.That(preview.GetColor("_BaseColor").a, Is.LessThanOrEqualTo(0.3f));
 
-            Material deleteOutline = LoadRequiredAsset<Material>(RoomDeleteOutlineMaterialPath);
-            Assert.That(deleteOutline.shader.name, Is.EqualTo("Universal Render Pipeline/Unlit"));
-            Assert.That(deleteOutline.GetColor("_BaseColor").r, Is.GreaterThan(1f));
+            Material glass = LoadRequiredAsset<Material>(GlassMaterialPath);
+            Material smokedGlass = LoadRequiredAsset<Material>(DeviceWallGlassMaterialPath);
+            Material mapMarker = LoadRequiredAsset<Material>(MapPlayerMarkerMaterialPath);
+            Assert.That(glass.GetFloat("_Translucency"), Is.EqualTo(0.05f).Within(0.0001f));
+            Assert.That(smokedGlass.GetFloat("_Translucency"), Is.EqualTo(0.10f).Within(0.0001f));
+            Assert.That(mapMarker.shader.name, Is.EqualTo("What Light Remains/Map Marker"));
+            Assert.That(mapMarker.renderQueue, Is.EqualTo((int)RenderQueue.Overlay));
 
             Assert.That(
                 EditorBuildSettings.TryGetConfigObject("com.unity.input.settings.actions", out InputActionAsset configuredActions),
@@ -384,7 +442,7 @@ namespace WhatLightRemains.Tests
             Assert.That(glass.GetFloat("_DistortionPixels"), Is.EqualTo(2.5f).Within(0.001f));
             Assert.That(glass.GetFloat("_DistortionBlend"), Is.EqualTo(0.55f).Within(0.001f));
             Assert.That(glass.GetFloat("_DistortionMip"), Is.EqualTo(4f).Within(0.001f));
-            Assert.That(glass.GetFloat("_Translucency"), Is.EqualTo(0.035f).Within(0.001f));
+            Assert.That(glass.GetFloat("_Translucency"), Is.EqualTo(0.05f).Within(0.001f));
         }
 
         [Test]
@@ -588,17 +646,26 @@ namespace WhatLightRemains.Tests
 
         private static void AssertCameraStack(List<Camera> cameras)
         {
-            Assert.That(cameras, Has.Count.EqualTo(2), "Expected one gameplay camera and one viewmodel overlay camera.");
+            Assert.That(cameras, Has.Count.EqualTo(3),
+                "Expected one gameplay camera, one viewmodel overlay camera, and one inactive world-map camera.");
 
             Camera baseCamera = cameras.SingleOrDefault(camera =>
                 camera.TryGetComponent(out UniversalAdditionalCameraData data)
-                && data.renderType == CameraRenderType.Base);
+                && data.renderType == CameraRenderType.Base
+                && camera.CompareTag("MainCamera"));
             Camera overlayCamera = cameras.SingleOrDefault(camera =>
                 camera.TryGetComponent(out UniversalAdditionalCameraData data)
                 && data.renderType == CameraRenderType.Overlay);
+            Camera mapCamera = cameras.SingleOrDefault(camera =>
+                camera.TryGetComponent(out UniversalAdditionalCameraData data)
+                && data.renderType == CameraRenderType.Base
+                && camera.name == "World Map Camera");
 
-            Assert.That(baseCamera, Is.Not.Null, "Exactly one camera must use the URP Base render type.");
+            Assert.That(baseCamera, Is.Not.Null, "Exactly one active gameplay camera must be the tagged URP Base camera.");
             Assert.That(overlayCamera, Is.Not.Null, "Exactly one camera must use the URP Overlay render type.");
+            Assert.That(mapCamera, Is.Not.Null, "The live map requires its own inactive URP Base camera.");
+            Assert.That(mapCamera.enabled, Is.False);
+            Assert.That(mapCamera.GetComponent<AudioListener>(), Is.Null);
             Assert.That(baseCamera.CompareTag("MainCamera"), Is.True, "The URP Base camera must be tagged MainCamera.");
             Assert.That(baseCamera.clearFlags, Is.EqualTo(CameraClearFlags.SolidColor));
             Assert.That(baseCamera.backgroundColor.maxColorComponent, Is.LessThanOrEqualTo(0.001f));
@@ -813,7 +880,7 @@ namespace WhatLightRemains.Tests
                 || renderer.name.IndexOf("Opening Edge Trim", StringComparison.Ordinal) >= 0).ToArray();
             Assert.That(
                 panes.Length,
-                Is.EqualTo(29),
+                Is.EqualTo(25),
                 "The room requires side-wall panes plus a closed ceiling and four complete ceiling-opening variants.");
             Assert.That(frames, Has.Length.EqualTo(24),
                 "Side and ceiling-edge doorway variants each require a three-piece frame.");
@@ -965,6 +1032,19 @@ namespace WhatLightRemains.Tests
             Assert.That(ceiling.EdgeCrossingRoots[0].activeSelf, Is.False,
                 "The full perimeter strip crossing an active aperture must be replaced by split segments.");
             Assert.That(ceiling.EdgeCrossingRoots.Skip(1).All(crossing => crossing.activeSelf), Is.True);
+            ceiling.SetExternalGeometryOwned(true);
+            Assert.That(ceiling.EdgeCrossingRoots[0].activeSelf, Is.False,
+                "External passage geometry must not reactivate the full strip across the opening.");
+            CubeRoomCeilingBoundary.EdgeVariant externalVariant = ceiling.EdgeVariants
+                .Single(variant => variant.Edge == RoomCeilingEdge.West);
+            Assert.That(externalVariant.PassageRoot.activeSelf, Is.True,
+                "The split light segments must remain active when RoomPassage owns the aperture geometry.");
+            Assert.That(externalVariant.Colliders.All(collider => !collider.enabled), Is.True);
+            Assert.That(externalVariant.Renderers.Where(renderer => renderer.name.StartsWith("Strip Ceiling Passage")
+                || renderer.name.StartsWith("Housing Ceiling Passage")).All(renderer => renderer.enabled), Is.True);
+            Assert.That(externalVariant.Renderers.Where(renderer => !renderer.name.StartsWith("Strip Ceiling Passage")
+                && !renderer.name.StartsWith("Housing Ceiling Passage")).All(renderer => !renderer.enabled), Is.True);
+            ceiling.SetExternalGeometryOwned(false);
             ceiling.ResetConnectionState();
             Assert.That(ceiling.ActivePassageRoot, Is.Null);
             Assert.That(ceiling.ClosedRenderers.All(renderer => renderer.enabled), Is.True);

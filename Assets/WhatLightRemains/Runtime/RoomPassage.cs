@@ -84,7 +84,7 @@ namespace WhatLightRemains.Runtime
             SetBoundaryOverride(roomB, faceB, true);
             ownsBoundaryOverrides = true;
 
-            Material glass = FindGlassMaterial(roomA, faceA) ?? FindGlassMaterial(roomB, faceB);
+            Material glass = FindPreferredGlassMaterial(roomA, faceA, roomB, faceB);
             Material frame = FindFrameMaterial(roomA, faceA) ?? FindFrameMaterial(roomB, faceB) ?? glass;
             Material trim = FindTrimMaterial(roomA, faceA) ?? FindTrimMaterial(roomB, faceB) ?? frame;
             Vector3 u = aperture.HorizontalAxis.normalized;
@@ -276,6 +276,22 @@ namespace WhatLightRemains.Runtime
                     if (renderer != null) return renderer.sharedMaterial;
             }
             return null;
+        }
+
+        private static Material FindPreferredGlassMaterial(CubeRoom first, CubeRoomFace firstFace,
+            CubeRoom second, CubeRoomFace secondFace)
+        {
+            if (UsesDeviceWall(first, firstFace)) return first.DeviceWall.SmokedGlassMaterial;
+            if (UsesDeviceWall(second, secondFace)) return second.DeviceWall.SmokedGlassMaterial;
+            return FindGlassMaterial(first, firstFace) ?? FindGlassMaterial(second, secondFace);
+        }
+
+        private static bool UsesDeviceWall(CubeRoom room, CubeRoomFace face)
+        {
+            return room != null && room.DeviceWall != null
+                && CubeRoom.TryGetWall(face, out CubeRoomWall wall)
+                && room.DeviceWall.Face == wall
+                && room.DeviceWall.SmokedGlassMaterial != null;
         }
 
         private static Material FindFrameMaterial(CubeRoom room, CubeRoomFace face)
